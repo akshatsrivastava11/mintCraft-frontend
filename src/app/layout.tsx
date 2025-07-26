@@ -1,15 +1,13 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+// ✅ 1. Import ONLY the font you need
+import { Luckiest_Guy } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// ✅ 2. Initialize the font object
+// This specific font from Google requires a weight to be specified.
+const luckiestGuy = Luckiest_Guy({
   subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "400",
 });
 
 export const metadata: Metadata = {
@@ -24,9 +22,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+      {/*
+        ✅ 3. Apply the font's className directly to the body.
+        This handles everything for you: loading the font, creating the
+        CSS, and applying the font-family.
+      */}
+      <body className={`${luckiestGuy.className} antialiased`}>
         {children}
       </body>
     </html>
