@@ -24,7 +24,7 @@ export function Sidebar() {
           <span className="sr-only">Open menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-full bg-[#e5d5d0] p-6 border-r-2 border-black">
+      <SheetContent side="left" className="w-full bg-[#948979] p-6 border-r-2 border-black">
         <SheetHeader className="flex flex-row items-center justify-between mb-8">
           <SheetTitle className="text-xl font-semibold text-black">Menu</SheetTitle>
           <Button
@@ -42,7 +42,7 @@ export function Sidebar() {
             <Button
               key={item.title}
               onClick={() => setOpen(false)}
-              className="block w-full p-4 text-center text-black font-medium bg-white border-2 border-black rounded-lg hover:bg-gray-50 transition-colors"
+              // className="block w-full p-4 text-center text-black font-medium bg-white border-2 border-black rounded-lg hover:bg-gray-50 transition-colors"
             >
               {item.title}
             </Button>

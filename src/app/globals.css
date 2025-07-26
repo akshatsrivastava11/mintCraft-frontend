@@ -15,7 +15,6 @@
   font-style: normal;
 }
 
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -54,6 +53,18 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Add missing button-related colors */
+  --color-main: var(--main);
+  --color-main-foreground: var(--main-foreground);
+  --color-secondary-background: var(--secondary-background);
+  --shadow-shadow: var(--shadow);
+  --translate-x-boxShadowX: var(--boxShadowX);
+  --translate-y-boxShadowY: var(--boxShadowY);
+  --translate-x-reverseBoxShadowX: var(--reverseBoxShadowX);
+  --translate-y-reverseBoxShadowY: var(--reverseBoxShadowY);
+  --rounded-base: var(--radius-base);
+  --font-base: var(--font-weight-base);
 }
 
 :root {
@@ -89,6 +100,18 @@
   --sidebar-ring: oklch(0.708 0 0);
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
+
+  /* Add missing button variables */
+  --main: #393E46;
+  --main-foreground: oklch(0.145 0 0);
+  --secondary-background: oklch(0.97 0 0);
+  --shadow: 4px 4px 0px oklch(0.145 0 0);
+  --boxShadowX: 4px;
+  --boxShadowY: 4px;
+  --reverseBoxShadowX: -4px;
+  --reverseBoxShadowY: -4px;
+  --radius-base: 0.5rem;
+  --font-weight-base: 500;
 }
 
 .dark {
@@ -123,13 +146,63 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+
+  /* Dark mode button variables */
+  --main: #393E46;
+  --main-foreground: oklch(0.145 0 0);
+  --secondary-background: oklch(0.269 0 0);
+  --shadow: 4px 4px 0px oklch(0.985 0 0);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Custom utility classes for the button */
+@layer utilities {
+  .rounded-base {
+    border-radius: var(--radius-base);
+  }
+
+  .font-base {
+    font-weight: var(--font-weight-base);
+  }
+
+  .bg-main {
+    background-color: var(--main);
+  }
+
+  .text-main-foreground {
+    color: var(--main-foreground);
+  }
+
+  .bg-secondary-background {
+    background-color: var(--secondary-background);
+  }
+
+  .shadow-shadow {
+    box-shadow: var(--shadow);
+  }
+
+  .translate-x-boxShadowX {
+    transform: translateX(var(--boxShadowX));
+  }
+
+  .translate-y-boxShadowY {
+    transform: translateY(var(--boxShadowY));
+  }
+
+  .translate-x-reverseBoxShadowX {
+    transform: translateX(var(--reverseBoxShadowX));
+  }
+
+  .translate-y-reverseBoxShadowY {
+    transform: translateY(var(--reverseBoxShadowY));
   }
 }

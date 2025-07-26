@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, Plus, Power } from "lucide-react"
 import { Navigation } from "./navigation"
+import DataTableDemo from "@/components/ui/DataTableDemo"
 
 interface UserModel {
   id: string
@@ -100,7 +101,7 @@ function CreateModel() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-200">
+    <div className="min-h-screen bg-[#948979]">
       <Navigation />
 
       <div className="p-8">
@@ -166,9 +167,9 @@ function CreateModel() {
             </Card>
           </div>
         )}
-
+    <DataTableDemo/>
         {/* Models List */}
-        <div className="max-w-2xl mx-auto space-y-4">
+        {/* <div className="max-w-2xl mx-auto space-y-4">
           {userModels.length > 0 ? (
             userModels.map((model) => (
               <Card
@@ -214,7 +215,7 @@ function CreateModel() {
               </Button>
             </div>
           )}
-        </div>
+        </div> */}
 
         {/* Floating Add Button */}
         <Button
