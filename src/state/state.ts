@@ -1,4 +1,5 @@
 import {create} from 'zustand'
+import { trpc } from '@/app/clients/trpc';
 const useAppstore=create((set)=>({
     wallet:{
         isConnected:false,
@@ -35,7 +36,39 @@ const useAppstore=create((set)=>({
         selectedModel:null
     },
     loadAvailableModels:async ()=>{},
-    registerAiModel:async()=>{},
+    registerAiModel:async(apiEndpoint:string,
+            description:string,
+            name:string,
+            royaltyPerGeneration:number,)=>{
+    try {
+        
+        const response=await trpc.aiModelRouter.register.mutate({
+            apiEndpoint,
+            description,
+            name,
+            royaltyPerGeneration
+        })
+        console.log(response)
+        return response
+    } catch (error) {
+        console.log("Error registering AI model:",error)
+        
+    }
+    },
+    confirmRegisterAiModel:async(pendingRegistrationId:number,
+                transactionSignature:string)=>{
+        try {
+
+            const response=await trpc.aiModelRouter.confirmRegistration.mutate({
+                pendingRegistrationId,
+                transactionSignature
+            })
+            console.log(response)
+            return response
+        } catch (error) {
+            console.log("Error confirming AI model registration:",error)
+        }
+    },
     //content-type
     createContent:async ()=>{},
     loadUserContent:async ()=>{},

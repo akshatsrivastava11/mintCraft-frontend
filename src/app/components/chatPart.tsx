@@ -91,7 +91,7 @@ function ChatPart() {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#948979] border-black border-8">
+    <div className="flex-1 flex flex-col h-full bg-[#948979] border-black border-15">
       {/* Messages Container */}
       <div className="flex-1 overflow-y-auto p-6 space-y-4">
         {messages.length === 0 ? (
@@ -168,7 +168,7 @@ function ChatPart() {
       </div>
 
       {/* Message Input */}
-      <div className="p-6 border-t-2 border-black border-8 mx-auto bg-[#948979] w-5xl">
+      <div className="p-6 m-4 border-t-2 border-black border-8  mx-auto bg-[#948979] w-5xl">
         <div className="flex gap-3">
           <Input
             placeholder="Type your message..."
@@ -176,7 +176,7 @@ function ChatPart() {
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyPress={handleKeyPress}
             disabled={isLoading}
-            className="flex-1 border-gray-300 focus:border-black"
+            className="flex-1 border-gray-300 text-xl/2 focus:border-black"
           />
           <Button
             onClick={handleSendMessage}
@@ -205,7 +205,6 @@ function ChatPart() {
     </DropdownMenu>
 
         </div>
-        <p className="text-xs text-gray-500 mt-2 text-center">Press Enter to send, Shift + Enter for new line</p>
       </div>
     </div>
   )

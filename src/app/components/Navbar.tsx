@@ -7,10 +7,10 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Accordion } from "@/components/ui/accordion"
 
 const navigationItems = [
-  { title: "Home", href: "#" },
-  { title: "About", href: "#" },
-  { title: "FAQ", href: "#" },
-  { title: "Contact", href: "#" },
+  { title: "Prompt1", href: "#" },
+  { title: "Prompt2", href: "#" },
+  { title: "Prompt3", href: "#" },
+  { title: "Prompt4", href: "#" },
 ]
 
 export function Sidebar() {
@@ -19,14 +19,14 @@ export function Sidebar() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="icon" className="fixed top-25 right-4 z-50 bg-white border-2 border-black">
+        <Button  size="icon" className="fixed top-22 m-5 right-4 z-50 bg-white  border-black border-4">
           <Menu className="h-4 w-4" />
           <span className="sr-only">Open menu</span>
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-full bg-[#948979] p-6 border-r-2 border-black">
+      <SheetContent side="left" className="w-full bg-[#948979] p-6 border-8 border-black">
         <SheetHeader className="flex flex-row items-center justify-between mb-8">
-          <SheetTitle className="text-xl font-semibold text-black">Menu</SheetTitle>
+          <SheetTitle className="text-xl font-semibold text-black">Chat History</SheetTitle>
           <Button
             size="icon"
             onClick={() => setOpen(false)}
@@ -37,11 +37,12 @@ export function Sidebar() {
           </Button>
         </SheetHeader>
 
-        <nav className="flex flex-col gap-4">
+        <nav className="flex flex-col gap-2 ">
           {navigationItems.map((item) => (
             <Button
               key={item.title}
               onClick={() => setOpen(false)}
+              className="w-full h-15"
               // className="block w-full p-4 text-center text-black font-medium bg-white border-2 border-black rounded-lg hover:bg-gray-50 transition-colors"
             >
               {item.title}

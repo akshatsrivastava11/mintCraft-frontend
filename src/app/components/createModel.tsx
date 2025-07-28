@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Loader2, Plus, Power } from "lucide-react"
 import { Navigation } from "./navigation"
 import DataTableDemo from "@/components/ui/DataTableDemo"
-
+import useAppstore from "@/state/state"
 interface UserModel {
   id: string
   name: string
@@ -17,6 +17,7 @@ interface UserModel {
 }
 
 function CreateModel() {
+  const {registerAiModel} =useAppstore()
   const [userModels, setUserModels] = useState<UserModel[]>([])
   const [newModel, setNewModel] = useState({
     royalty: "",
@@ -78,7 +79,7 @@ function CreateModel() {
       status: "training",
       type: "custom",
     }
-
+    await registerAiModel(newModel.apiEndpoint,newModel.description,newModel.name,newModel.royalty)
     setUserModels((prev) => [newModelData, ...prev])
     setNewModel("")
     setShowCreateForm(false)
@@ -99,6 +100,7 @@ function CreateModel() {
       </div>
     )
   }
+
 
   return (
     <div className="min-h-screen bg-[#948979]">
@@ -156,7 +158,6 @@ function CreateModel() {
                     )}
                   </Button>
                   <Button
-                    variant="outline"
                     onClick={() => setShowCreateForm(false)}
                     className="border-black text-black hover:bg-gray-100"
                   >

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 // ✅ 1. Import ONLY the font you need
 import { Luckiest_Guy } from "next/font/google";
+import { SolanaProvider } from "./providers/solanaProvider";
 import "./globals.css";
 
 // ✅ 2. Initialize the font object
@@ -28,7 +29,10 @@ export default function RootLayout({
         CSS, and applying the font-family.
       */}
       <body className={`${luckiestGuy.className} antialiased`}>
-        {children}
+        <SolanaProvider>
+          {children}
+        </SolanaProvider>
+        
       </body>
     </html>
   );
