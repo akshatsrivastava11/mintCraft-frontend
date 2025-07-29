@@ -1,33 +1,21 @@
 import {create} from 'zustand'
 import { trpc } from '@/app/clients/trpc';
-const useAppstore=create((set)=>({
+import { PublicKey,VersionedTransaction } from '@solana/web3.js';
+import { error } from 'console';
+
+import {
+    type SignerWalletAdapterProps,
+    type WalletAdapterProps,
+   
+} from '@solana/wallet-adapter-base';
+import {Transaction,Connection} from '@solana/web3.js'
+// import { useConnection } from '@solana/wallet-adapter-react';
+// const connection=useConnection()
+const useAppstore=create((set,get)=>({
     wallet:{
         isConnected:false,
-        address:null,
+        address:PublicKey,
         balance:0
-    },
-    connectWallet:async(walletAdapter)=>{
-        try {
-            await walletAdapter.connect();
-            set({
-                wallet:{
-                    isConnected:true,
-                    address:walletAdapter.publicKey.toString(),
-                    balance:await walletAdapter.getBalance()
-                }
-            })
-        } catch (error) {
-            console.log("Error connecting wallet:",error)
-        }
-    },
-    disconnectWallet:async(walletAdapter)=>{
-        set({
-            wallet:{
-                isConnected:false,
-                address:null,
-                balance:0
-            }
-        })
     },
     //Ai-models
     aiModels:{
@@ -41,13 +29,20 @@ const useAppstore=create((set)=>({
             name:string,
             royaltyPerGeneration:number,)=>{
     try {
-        
-        const response=await trpc.aiModelRouter.register.mutate({
-            apiEndpoint,
-            description,
-            name,
-            royaltyPerGeneration
+        let wallet=get().wallet;
+        console.log("wallet i s",wallet)
+        const mutation= trpc.aiModelRouter.register.useMutation({
+            onSuccess:(data)=> {
+                console.log("registration initilized",data)
+
+            },
+            onError:(error)=>{
+                console.log("Error registering AI model:",error)
+
+            }
         })
+        const response=await mutation.mutate({apiEndpoint,description,name,royaltyPerGeneration})
+
         console.log(response)
         return response
     } catch (error) {
@@ -81,7 +76,31 @@ const useAppstore=create((set)=>({
     createListings:async()=>{},
     buyNft:async()=>{},
     loadUserListings:async()=>{},
+signingTransaction: async (
+  signTransaction: SignerWalletAdapterProps['signTransaction'] | undefined,
+  sendTransaction: WalletAdapterProps['sendTransaction'],
+  connection: ConnectionContextState,
+  TransactionSig: string
+) => {
+  try {
+    const txBuffer = Buffer.from(TransactionSig, 'base64')
+    const transaction = VersionedTransaction.deserialize(txBuffer)
+
+    if (signTransaction) {
+      const signedTx = await signTransaction(transaction)
+      const sig = await connection.connection.sendRawTransaction(signedTx.serialize())
+      console.log("Submitted tx signature:", sig)
+      await connection.connection.confirmTransaction(sig, 'processed')
+    }
+  } catch (err) {
+    console.error("Signing or sending transaction failed:", err)
+  }
+}
 
 }))
 
 export default useAppstore;
+
+export interface ConnectionContextState {
+    connection: Connection;
+}

@@ -1,5 +1,5 @@
+//@ts-nocheck
 "use client"
-
 import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,6 +8,9 @@ import { Loader2, Plus, Power } from "lucide-react"
 import { Navigation } from "./navigation"
 import DataTableDemo from "@/components/ui/DataTableDemo"
 import useAppstore from "@/state/state"
+import { trpc } from "../clients/trpc"
+import { useWallet,useConnection } from "@solana/wallet-adapter-react"
+// import { useConnection } from "@solana/wallet-adapter-react"
 interface UserModel {
   id: string
   name: string
@@ -17,7 +20,9 @@ interface UserModel {
 }
 
 function CreateModel() {
-  const {registerAiModel} =useAppstore()
+  const connection=useConnection()
+  const {signTransaction,sendTransaction}=useWallet()
+  const {signingTransaction}=useAppstore()
   const [userModels, setUserModels] = useState<UserModel[]>([])
   const [newModel, setNewModel] = useState({
     royalty: "",
@@ -28,6 +33,36 @@ function CreateModel() {
   const [isLoading, setIsLoading] = useState(true)
   const [isCreating, setIsCreating] = useState(false)
   const [showCreateForm, setShowCreateForm] = useState(false)
+
+  const registerMutation = trpc.aiModelRouter.register.useMutation({
+    onSuccess: (data) => {
+      console.log('AI Model registered:', data.serializedTransaction);
+      
+      // Add the new model to the list after successful registration
+      const newModelData: UserModel = {
+        id: Date.now().toString(),
+        name: newModel.name,
+        createdAt: new Date().toISOString().split("T")[0],
+        status: "training",
+        type: "custom",
+      }
+      
+      setUserModels((prev) => [newModelData, ...prev])
+      setNewModel({
+        royalty: "",
+        apiEndpoint: "",
+        description: "",
+        name: ""
+      })
+      setShowCreateForm(false)
+      setIsCreating(false)
+      return data
+    },
+    onError: (err) => {
+      console.error('Failed to register model:', err.message);
+      setIsCreating(false)
+    },
+  });
 
   const fetchUserModels = async () => {
     console.log("Fetching user models from the DB...")
@@ -68,21 +103,21 @@ function CreateModel() {
     if (!newModel.name.trim()) return
 
     setIsCreating(true)
-    // Simulate model creation
+    
+    // Simulate model creation delay
     await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    //checks if the api_endpoint is valid
-    const newModelData: UserModel = {
-      id: Date.now().toString(),
-      name: newModel.name,
-      createdAt: new Date().toISOString().split("T")[0],
-      status: "training",
-      type: "custom",
-    }
-    await registerAiModel(newModel.apiEndpoint,newModel.description,newModel.name,newModel.royalty)
-    setUserModels((prev) => [newModelData, ...prev])
-    setNewModel("")
-    setShowCreateForm(false)
+//signTransaction: SignerWalletAdapterProps['signTransaction'] | undefined,sendTransaction: WalletAdapterProps['sendTransaction'],connection:ConnectionContextState,TransactionSig:string
+    // Use the mutation - this will trigger onSuccess or onError callbacks
+    const response = await registerMutation.mutateAsync({
+      apiEndpoint: "ccfec",
+      description: "frerf",
+      name: "fvvr",
+      royaltyPerGeneration:4
+    })
+    
+    console.log("REsponse is ",response)
+    console.log("response is ", response.serializedTransaction)
+    await signingTransaction(signTransaction,sendTransaction,connection,response.serializedTransaction)
     setIsCreating(false)
   }
 
@@ -100,7 +135,6 @@ function CreateModel() {
       </div>
     )
   }
-
 
   return (
     <div className="min-h-screen bg-[#948979]">
@@ -124,19 +158,19 @@ function CreateModel() {
                   onChange={(e) => setNewModel({ ...newModel, name: e.target.value })}
                   className="border-gray-300 focus:border-black"
                 />
-                  <Input
+                <Input
                   placeholder="Enter royalty_percent..."
                   value={newModel.royalty}
                   onChange={(e) => setNewModel({...newModel, royalty: e.target.value })}
                   className="border-gray-300 focus:border-black"
                 />
-                  <Input
+                <Input
                   placeholder="Enter api endpoint..."
                   value={newModel.apiEndpoint}
                   onChange={(e) => setNewModel({...newModel, apiEndpoint: e.target.value })}
                   className="border-gray-300 focus:border-black"
                 />
-                  <Input
+                <Input
                   placeholder="Enter agent description..."
                   value={newModel.description}
                   onChange={(e) => setNewModel({...newModel, description: e.target.value })}
@@ -145,10 +179,10 @@ function CreateModel() {
                 <div className="flex gap-2">
                   <Button
                     onClick={handleCreateModel}
-                    disabled={!newModel.name.trim() || isCreating}
+                    disabled={!newModel.name.trim() || isCreating || registerMutation.isPending}
                     className="bg-black hover:bg-gray-800 text-white"
                   >
-                    {isCreating ? (
+                    {isCreating || registerMutation.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                         Creating...
@@ -160,6 +194,7 @@ function CreateModel() {
                   <Button
                     onClick={() => setShowCreateForm(false)}
                     className="border-black text-black hover:bg-gray-100"
+                    variant="outline"
                   >
                     Cancel
                   </Button>
@@ -168,55 +203,8 @@ function CreateModel() {
             </Card>
           </div>
         )}
-    <DataTableDemo/>
-        {/* Models List */}
-        {/* <div className="max-w-2xl mx-auto space-y-4">
-          {userModels.length > 0 ? (
-            userModels.map((model) => (
-              <Card
-                key={model.id}
-                className="border-2 border-black bg-white hover:bg-gray-50 transition-colors cursor-pointer"
-              >
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-500 rounded flex items-center justify-center">
-                      <Power className="h-6 w-6 text-white" />
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-black text-lg">{model.name}</h3>
-                      <p className="text-gray-600 text-sm">{model.type}</p>
-                    </div>
-                    <div className="text-right">
-                      <div
-                        className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                          model.status === "active"
-                            ? "bg-green-100 text-green-800"
-                            : model.status === "training"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {model.status}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))
-          ) : (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 bg-gray-300 rounded mx-auto mb-4 flex items-center justify-center">
-                <Power className="h-8 w-8 text-gray-500" />
-              </div>
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">No Agents Yet</h3>
-              <p className="text-gray-500 mb-4">Create your first AI agent to get started</p>
-              <Button onClick={() => setShowCreateForm(true)} className="bg-black hover:bg-gray-800 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Agent
-              </Button>
-            </div>
-          )}
-        </div> */}
+        
+        <DataTableDemo/>
 
         {/* Floating Add Button */}
         <Button
