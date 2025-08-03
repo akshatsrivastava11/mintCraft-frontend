@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Send, Bot, User } from "lucide-react"
+import { Loader2, Send, Bot, User, Zap, ChevronDown } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -16,6 +16,8 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { trpc } from "../clients/trpc"
+
 interface Message {
   id: string
   content: string
@@ -23,13 +25,83 @@ interface Message {
   timestamp: string
 }
 
+type getAllModels =
+  | {
+      id: number
+      ownerId: number
+      name: string
+      description: string
+      royaltyPercentage: number
+      apiEndpoint: string
+      headersJSONstring: string
+      isActive: boolean
+      createdAt: string
+      updatedAt: string
+      aiModelPublicKey: string
+      owner: {
+        wallet: string
+        id: number
+      }
+    }[]
+  | undefined
+
 function ChatPart() {
+  const { data, error } = trpc.aiModelRouter.getAll.useQuery()
+
+  useEffect(() => {
+    if (data) {
+      console.log("data is", data)
+    }
+  }, [data])
+
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [isTyping, setIsTyping] = useState(false)
+  const [selectedAImodel, setSelectedAImodel] = useState<number | null>(null)
+  const [allModels, setallModels] = useState<getAllModels>([
+    {
+      owner: {
+        wallet: "",
+        id: 1,
+      },
+      id: 101,
+      ownerId: 1,
+      name: "POSEIDON-GPT",
+      description: "OCEANIC DATA ANALYSIS POWERHOUSE",
+      royaltyPercentage: 10,
+      apiEndpoint: "https://api.example.com/poseidon-gpt",
+      headersJSONstring: JSON.stringify({
+        Authorization: "Bearer DEMO_TOKEN",
+        "Content-Type": "application/json",
+      }),
+      isActive: true,
+      createdAt: "",
+      updatedAt: "",
+      aiModelPublicKey: "7gF7KsE9qRXUEqJvK5JpZVcNxkzzbTTbv6XUc6PKcPvZ",
+    },
+  ])
+
+  const contentGenerationMutation = trpc.contentRouter.generate.useMutation({
+    onSuccess: (data) => {
+      console.log("content generation response is", data)
+    },
+    onError: (error) => {
+      console.log("Error generating content:", error)
+    },
+  })
+
+  useEffect(() => {
+    if (data) {
+      const x = data
+      console.log(x)
+      setallModels(x)
+    }
+  }, [data])
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
-    const [position,setPosition]=useState()
+  const [position, setPosition] = useState()
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }
@@ -39,10 +111,9 @@ function ChatPart() {
   }, [messages])
 
   useEffect(() => {
-    // Add welcome message on component mount
     const welcomeMessage: Message = {
       id: "welcome",
-      content: "Hello! I'm your AI assistant. How can I help you today?",
+      content: "YO! I'M YOUR AI ASSISTANT. READY TO CREATE SOME SICK CONTENT?",
       sender: "ai",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     }
@@ -51,36 +122,35 @@ function ChatPart() {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return
-
+    console.log(newMessage)
     const userMessage: Message = {
       id: Date.now().toString(),
       content: newMessage,
       sender: "user",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
     }
-
+    if (!allModels) {
+      return
+    }
+    const aiModelUsed = allModels.find((model) => model.id === selectedAImodel)
+    if (!aiModelUsed) {
+      return
+    }
+    const response = await contentGenerationMutation.mutateAsync({
+      aiModelId: aiModelUsed.id,
+      prompt: userMessage.content,
+      contentType: "image",
+      description: "desc of nft",
+      name: "name of nft",
+    })
+    if (!response.success) {
+      console.log("error generating content", response)
+      return
+    }
+    console.log("Response from the content generation is", response)
     setMessages((prev) => [...prev, userMessage])
     setNewMessage("")
     setIsTyping(true)
-
-    // Simulate AI response
-    setTimeout(async () => {
-      setIsLoading(true)
-
-      // Simulate processing time
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: `I understand you said: "${userMessage.content}". This is a simulated response. In a real implementation, this would connect to your AI model.`,
-        sender: "ai",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      }
-
-      setMessages((prev) => [...prev, aiMessage])
-      setIsTyping(false)
-      setIsLoading(false)
-    }, 800)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -90,48 +160,103 @@ function ChatPart() {
     }
   }
 
+  const selectedModel = allModels?.find((model) => model.id === selectedAImodel)
+
   return (
-    <div className="flex-1 flex flex-col h-full bg-[#948979] border-black border-15">
+    <div className="flex-1 flex flex-col h-full bg-white/90 backdrop-blur-sm">
+      {/* Chat Header */}
+      <div className="bg-white brutalist-border-thick brutalist-shadow p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-fuchsia-500 brutalist-border flex items-center justify-center brutalist-shadow">
+              <Bot className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h2 className="brutalist-subtitle text-black">AI ASSISTANT</h2>
+              <p className="brutalist-text text-xs text-gray-600">
+                {selectedModel ? `USING ${selectedModel.name}` : "SELECT MODEL TO START"}
+              </p>
+            </div>
+          </div>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button className="brutalist-button-cyber">
+                <Bot className="w-4 h-4 mr-2" />
+                {selectedModel ? selectedModel.name : "SELECT MODEL"}
+                <ChevronDown className="w-4 h-4 ml-2" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 bg-white brutalist-border brutalist-shadow">
+              <DropdownMenuLabel className="brutalist-text text-black p-4">CHOOSE AI MODEL</DropdownMenuLabel>
+              <DropdownMenuGroup>
+                <DropdownMenuRadioGroup value={position} onValueChange={(val) => setSelectedAImodel(Number(val))}>
+                  {allModels &&
+                    allModels.map((model) => (
+                      <DropdownMenuRadioItem
+                        key={model.id}
+                        value={String(model.id)}
+                        className="hover:bg-lime-400 p-4 brutalist-text"
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-black text-black">{model.name}</span>
+                          <span className="text-xs text-gray-600 font-bold">{model.description}</span>
+                        </div>
+                      </DropdownMenuRadioItem>
+                    ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
       {/* Messages Container */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-white/80 backdrop-blur-sm">
         {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="w-16 h-16 bg-gray-300 rounded mx-auto mb-4 flex items-center justify-center">
-                <Bot className="h-8 w-8 text-gray-500" />
+              <div className="w-24 h-24 bg-lime-400 brutalist-border brutalist-shadow-xl mx-auto mb-6 flex items-center justify-center">
+                <Zap className="h-12 w-12 text-black" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-600 mb-2">Start a Conversation</h3>
-              <p className="text-gray-500">Send a message to begin chatting with your AI assistant</p>
+              <h3 className="brutalist-title text-black mb-4">START CREATING</h3>
+              <p className="brutalist-text text-gray-600 max-w-md">
+                SEND A MESSAGE TO BEGIN YOUR AI-POWERED CONTENT CREATION
+              </p>
             </div>
           </div>
         ) : (
-          messages.map((message) => (
+          messages.map((message, index) => (
             <div
               key={message.id}
-              className={`flex gap-3 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex gap-4 ${message.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               {message.sender === "ai" && (
-                <div className="w-8 h-8 bg-black rounded flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-white" />
+                <div className="w-12 h-12 bg-fuchsia-500 brutalist-border flex items-center justify-center flex-shrink-0 brutalist-shadow">
+                  <Bot className="h-6 w-6 text-white" />
                 </div>
               )}
 
               <Card
-                className={`max-w-[70%] border-2 border-black ${
-                  message.sender === "user" ? "bg-black text-white" : "bg-white text-black"
+                className={`max-w-[75%] brutalist-border ${
+                  message.sender === "user"
+                    ? "bg-black text-white brutalist-shadow-electric"
+                    : "bg-white text-black brutalist-shadow-cyber"
                 }`}
               >
                 <CardContent className="p-4">
-                  <p className="text-sm leading-relaxed">{message.content}</p>
-                  <p className={`text-xs mt-2 ${message.sender === "user" ? "text-gray-300" : "text-gray-500"}`}>
+                  <p className="font-bold leading-relaxed mb-2">{message.content}</p>
+                  <p
+                    className={`text-xs brutalist-text ${message.sender === "user" ? "text-lime-400" : "text-gray-500"}`}
+                  >
                     {message.timestamp}
                   </p>
                 </CardContent>
               </Card>
 
               {message.sender === "user" && (
-                <div className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center flex-shrink-0">
-                  <User className="h-4 w-4 text-white" />
+                <div className="w-12 h-12 bg-black brutalist-border flex items-center justify-center flex-shrink-0 brutalist-shadow">
+                  <User className="h-6 w-6 text-lime-400" />
                 </div>
               )}
             </div>
@@ -140,24 +265,19 @@ function ChatPart() {
 
         {/* Typing Indicator */}
         {isTyping && (
-          <div className="flex gap-3 justify-start">
-            <div className="w-8 h-8 bg-black rounded flex items-center justify-center flex-shrink-0">
-              <Bot className="h-4 w-4 text-white" />
+          <div className="flex gap-4 justify-start">
+            <div className="w-12 h-12 bg-fuchsia-500 brutalist-border flex items-center justify-center flex-shrink-0 brutalist-shadow">
+              <Bot className="h-6 w-6 text-white" />
             </div>
-            <Card className="border-2 border-black bg-white">
+            <Card className="bg-white brutalist-border brutalist-shadow-warning">
               <CardContent className="p-4">
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-3">
                   <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
+                    <div className="w-3 h-3 bg-black animate-bounce"></div>
+                    <div className="w-3 h-3 bg-black animate-bounce" style={{ animationDelay: "0.1s" }}></div>
+                    <div className="w-3 h-3 bg-black animate-bounce" style={{ animationDelay: "0.2s" }}></div>
                   </div>
+                  <span className="brutalist-text text-black">AI IS THINKING...</span>
                 </div>
               </CardContent>
             </Card>
@@ -168,42 +288,31 @@ function ChatPart() {
       </div>
 
       {/* Message Input */}
-      <div className="p-6 m-4 border-t-2 border-black border-8  mx-auto bg-[#948979] w-5xl">
-        <div className="flex gap-3">
-          <Input
-            placeholder="Type your message..."
-            value={newMessage}
-            onChange={(e) => setNewMessage(e.target.value)}
-            onKeyPress={handleKeyPress}
-            disabled={isLoading}
-            className="flex-1 border-gray-300 text-xl/2 focus:border-black"
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={!newMessage.trim() || isLoading}
-            className="bg-black hover:bg-gray-800 text-white px-6"
-          >
-            {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-          </Button>
-          
-             <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="noShadow">Select Model</Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-56">
-        <DropdownMenuLabel inset>Panel Position</DropdownMenuLabel>
-        <DropdownMenuGroup>
-          <DropdownMenuRadioGroup value={position} onValueChange={setPosition}>
-            <DropdownMenuRadioItem value="top">Model-1</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="bottom">Model-2</DropdownMenuRadioItem>
-            <DropdownMenuRadioItem value="right" disabled>
-              Model-3
-            </DropdownMenuRadioItem>
-          </DropdownMenuRadioGroup>
-        </DropdownMenuGroup>
-      </DropdownMenuContent>
-    </DropdownMenu>
+      <div className="bg-white/95 backdrop-blur-sm brutalist-border-thick brutalist-shadow-lg p-6">
+        <div className="max-w-4xl mx-auto">
+          <div className="flex gap-4 items-end">
+            <div className="flex-1">
+              <Input
+                placeholder="TYPE YOUR MESSAGE..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                disabled={isLoading}
+                className="brutalist-input text-lg py-4 px-4 font-bold placeholder:font-black placeholder:text-gray-400"
+              />
+            </div>
+            <Button
+              onClick={handleSendMessage}
+              disabled={!newMessage.trim() || isLoading || !selectedAImodel}
+              className="brutalist-button-electric px-8 py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Send className="w-6 h-6" />}
+            </Button>
+          </div>
 
+          {!selectedAImodel && (
+            <p className="brutalist-text text-red-500 mt-4 text-center">SELECT AN AI MODEL TO START CHATTING!</p>
+          )}
         </div>
       </div>
     </div>

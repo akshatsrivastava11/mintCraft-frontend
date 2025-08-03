@@ -54,7 +54,7 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Add missing button-related colors */
+  /* Neo-brutalist design tokens */
   --color-main: var(--main);
   --color-main-foreground: var(--main-foreground);
   --color-secondary-background: var(--secondary-background);
@@ -68,7 +68,7 @@
 }
 
 :root {
-  --radius: 0.625rem;
+  --radius: 0px;
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
@@ -101,57 +101,55 @@
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
 
-  /* Add missing button variables */
-  --main: #393E46;
-  --main-foreground: oklch(0.145 0 0);
-  --secondary-background: oklch(0.97 0 0);
-  --shadow: 4px 4px 0px oklch(0.145 0 0);
-  --boxShadowX: 4px;
-  --boxShadowY: 4px;
-  --reverseBoxShadowX: -4px;
-  --reverseBoxShadowY: -4px;
-  --radius-base: 0.5rem;
-  --font-weight-base: 500;
+  /* Neo-brutalist color palette */
+  --main: #000000;
+  --main-foreground: #ffffff;
+  --secondary-background: #ffffff;
+  --accent-electric: #00ff00;
+  --accent-cyber: #ff00ff;
+  --accent-neon: #00ffff;
+  --accent-warning: #ffff00;
+  --accent-danger: #ff0000;
+  --accent-purple: #8000ff;
+  --neutral-100: #f5f5f5;
+  --neutral-200: #e5e5e5;
+  --neutral-800: #262626;
+  --neutral-900: #171717;
+
+  /* Background patterns */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: #2d2d2d;
+  --bg-accent: #ff6b35;
+
+  /* Brutalist shadows and effects */
+  --shadow: 8px 8px 0px #000000;
+  --shadow-lg: 12px 12px 0px #000000;
+  --shadow-xl: 16px 16px 0px #000000;
+  --shadow-colored: 8px 8px 0px;
+  --boxShadowX: 8px;
+  --boxShadowY: 8px;
+  --reverseBoxShadowX: -8px;
+  --reverseBoxShadowY: -8px;
+  --radius-base: 0px;
+  --font-weight-base: 900;
+
+  /* Brutalist borders */
+  --border-thick: 4px;
+  --border-thicker: 6px;
+  --border-thiccest: 8px;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-
-  /* Dark mode button variables */
-  --main: #393E46;
-  --main-foreground: oklch(0.145 0 0);
-  --secondary-background: oklch(0.269 0 0);
-  --shadow: 4px 4px 0px oklch(0.985 0 0);
+  --background: #000000;
+  --foreground: #ffffff;
+  --card: #000000;
+  --card-foreground: #ffffff;
+  --main: #ffffff;
+  --main-foreground: #000000;
+  --secondary-background: #000000;
+  --shadow: 8px 8px 0px #ffffff;
+  --shadow-lg: 12px 12px 0px #ffffff;
+  --shadow-xl: 16px 16px 0px #ffffff;
 }
 
 @layer base {
@@ -161,48 +159,279 @@
 
   body {
     @apply bg-background text-foreground;
+    background: linear-gradient(45deg, #ff6b35 0%, #f7931e 25%, #ffd23f 50%, #06ffa5 75%, #1cb5e0 100%);
+    background-size: 400% 400%;
+    animation: gradientShift 15s ease infinite;
+    font-family: "Arial Black", Arial, sans-serif;
+    font-weight: 900;
+    min-height: 100vh;
   }
 }
 
-/* Custom utility classes for the button */
+/* Neo-brutalist utility classes */
 @layer utilities {
-  .rounded-base {
-    border-radius: var(--radius-base);
+  .brutalist-card {
+    @apply bg-white border-4 border-black;
+    box-shadow: 8px 8px 0px #000000;
   }
 
-  .font-base {
-    font-weight: var(--font-weight-base);
+  .brutalist-card-colored {
+    @apply bg-white border-4 border-black;
   }
 
-  .bg-main {
-    background-color: var(--main);
+  .brutalist-button {
+    @apply bg-black text-white border-4 border-black font-black uppercase tracking-wider;
+    box-shadow: 4px 4px 0px #000000;
+    transition: all 0.1s ease;
   }
 
-  .text-main-foreground {
-    color: var(--main-foreground);
+  .brutalist-button:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000000;
   }
 
-  .bg-secondary-background {
-    background-color: var(--secondary-background);
+  .brutalist-button:active {
+    transform: translate(4px, 4px);
+    box-shadow: 0px 0px 0px #000000;
   }
 
-  .shadow-shadow {
-    box-shadow: var(--shadow);
+  .brutalist-button-electric {
+    @apply bg-lime-400 text-black border-4 border-black font-black uppercase tracking-wider;
+    box-shadow: 4px 4px 0px #000000;
   }
 
-  .translate-x-boxShadowX {
-    transform: translateX(var(--boxShadowX));
+  .brutalist-button-electric:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000000;
   }
 
-  .translate-y-boxShadowY {
-    transform: translateY(var(--boxShadowY));
+  .brutalist-button-cyber {
+    @apply bg-fuchsia-500 text-white border-4 border-black font-black uppercase tracking-wider;
+    box-shadow: 4px 4px 0px #000000;
   }
 
-  .translate-x-reverseBoxShadowX {
-    transform: translateX(var(--reverseBoxShadowX));
+  .brutalist-button-cyber:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000000;
   }
 
-  .translate-y-reverseBoxShadowY {
-    transform: translateY(var(--reverseBoxShadowY));
+  .brutalist-button-danger {
+    @apply bg-red-500 text-white border-4 border-black font-black uppercase tracking-wider;
+    box-shadow: 4px 4px 0px #000000;
   }
+
+  .brutalist-button-danger:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 2px 2px 0px #000000;
+  }
+
+  .brutalist-input {
+    @apply bg-white border-4 border-black font-bold text-black placeholder-gray-600;
+    box-shadow: inset 4px 4px 0px #f0f0f0;
+  }
+
+  .brutalist-input:focus {
+    @apply outline-none;
+    box-shadow: inset 4px 4px 0px #e0e0e0, 0 0 0 4px #00ff00;
+  }
+
+  .brutalist-shadow {
+    box-shadow: 8px 8px 0px #000000;
+  }
+
+  .brutalist-shadow-lg {
+    box-shadow: 12px 12px 0px #000000;
+  }
+
+  .brutalist-shadow-xl {
+    box-shadow: 16px 16px 0px #000000;
+  }
+
+  .brutalist-shadow-electric {
+    box-shadow: 8px 8px 0px #00ff00;
+  }
+
+  .brutalist-shadow-cyber {
+    box-shadow: 8px 8px 0px #ff00ff;
+  }
+
+  .brutalist-shadow-neon {
+    box-shadow: 8px 8px 0px #00ffff;
+  }
+
+  .brutalist-shadow-warning {
+    box-shadow: 8px 8px 0px #ffff00;
+  }
+
+  .brutalist-shadow-danger {
+    box-shadow: 8px 8px 0px #ff0000;
+  }
+
+  .brutalist-text {
+    @apply font-black uppercase tracking-wider;
+  }
+
+  .brutalist-border {
+    @apply border-4 border-black;
+  }
+
+  .brutalist-border-thick {
+    @apply border-6 border-black;
+  }
+
+  .brutalist-border-thicc {
+    @apply border-8 border-black;
+  }
+
+  .animate-brutalist-bounce {
+    animation: brutalistBounce 0.3s ease-out;
+  }
+
+  .animate-brutalist-shake {
+    animation: brutalistShake 0.5s ease-in-out;
+  }
+
+  .animate-brutalist-glitch {
+    animation: brutalistGlitch 0.3s ease-in-out;
+  }
+}
+
+@keyframes brutalistBounce {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes brutalistShake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
+}
+
+@keyframes brutalistGlitch {
+  0% {
+    transform: translate(0);
+  }
+  20% {
+    transform: translate(-2px, 2px);
+  }
+  40% {
+    transform: translate(-2px, -2px);
+  }
+  60% {
+    transform: translate(2px, 2px);
+  }
+  80% {
+    transform: translate(2px, -2px);
+  }
+  100% {
+    transform: translate(0);
+  }
+}
+
+/* Custom scrollbar - brutalist style */
+::-webkit-scrollbar {
+  width: 16px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border: 2px solid #000000;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #000000;
+  border: 2px solid #000000;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #333333;
+}
+
+@keyframes gradientShift {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* Typography overrides */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  @apply font-black uppercase tracking-wider;
+}
+
+.brutalist-title {
+  @apply text-4xl font-black uppercase tracking-widest;
+  text-shadow: 2px 2px 0px #000000;
+}
+
+.brutalist-subtitle {
+  @apply text-xl font-black uppercase tracking-wider;
+  text-shadow: 1px 1px 0px #000000;
+}
+
+.brutalist-text {
+  @apply font-black uppercase tracking-wider;
+  text-shadow: none;
+}
+
+/* Additional background utilities */
+.bg-brutalist-primary {
+  background: #1a1a1a;
+}
+
+.bg-brutalist-secondary {
+  background: #2d2d2d;
+}
+
+.bg-brutalist-pattern {
+  background: linear-gradient(
+      45deg,
+      transparent 25%,
+      rgba(0, 0, 0, 0.1) 25%,
+      rgba(0, 0, 0, 0.1) 50%,
+      transparent 50%,
+      transparent 75%,
+      rgba(0, 0, 0, 0.1) 75%
+    ),
+    linear-gradient(
+      -45deg,
+      transparent 25%,
+      rgba(0, 0, 0, 0.1) 25%,
+      rgba(0, 0, 0, 0.1) 50%,
+      transparent 50%,
+      transparent 75%,
+      rgba(0, 0, 0, 0.1) 75%
+    );
+  background-size: 20px 20px;
 }
