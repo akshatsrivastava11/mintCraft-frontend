@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Plus, Bot, Zap, Settings, Square } from "lucide-react"
+import { Loader2, Plus, Bot, Zap, Settings, Square, Wallet } from "lucide-react"
 import { Navigation } from "./navigation"
 import DataTableDemo from "@/components/ui/DataTableDemo"
 import useAppstore from "@/state/state"
@@ -74,6 +74,14 @@ function CreateModel() {
     },
   })
 
+  const initilizeUserConfigMutation = trpc.aiModelRouter.initializeUserConfig.useMutation({
+    onSuccess: (data) => {
+      console.log("User config initialized:", data)
+    },
+    onError: (err) => {
+      console.error("Failed to initialize user config:", err.message)
+    },  
+  })
   const fetchUserModels = async () => {
     console.log("Fetching user models from the DB...")
     setIsLoading(true)
@@ -106,39 +114,61 @@ function CreateModel() {
     setUserModels(mockData)
     setIsLoading(false)
   }
-
+  
+  const wallet=useWallet().publicKey
   const handleCreateModel = async () => {
     if (!newModel.name.trim()) return
-
+    console.log("the wallet is :", wallet)
+    const response1=await initilizeUserConfigMutation.mutateAsync()
+    console.log("User config initialized:", response1)
+    if(!response1.serializedTransaction){
+      console.error("Account already initialized, skipping transaction signing")
+    }
+    else{
+       const responseSigned1 = await signingTransaction(
+      signTransaction,
+      sendTransaction,
+      connection,
+      response1.serializedTransaction,
+      wallet
+    )
+    console.log("Response signed is ", responseSigned1)
+  }
     setIsCreating(true)
     await new Promise((resolve) => setTimeout(resolve, 2000))
-
-    const response = await registerMutation.mutateAsync({
+    console.log("APiKEY")
+    const json={
       apiEndpoint: "https://router.huggingface.co/nebius/v1/images/generations",
       description: "This AIMODEL is used to generate images",
-      name: "NebiusForDemo",
+      name: "DemoNebiusis",
       royaltyPerGeneration: 3,
       headersJSONstring: String(`{
-				Authorization: Bearer ${process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY},
+				"Authorization": "Bearer ${process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY}",
 				"Content-Type": "application/json",
 			}`),
-    })
+    }
+    console.log("JSON is ", json)
+    const response = await registerMutation.mutateAsync(json)
 
     console.log("REsponse is ", response)
     console.log("response is ", response.serializedTransaction)
+    console.log("amount of prior credit is ", wallet)
     const responseSigned = await signingTransaction(
       signTransaction,
       sendTransaction,
       connection,
       response.serializedTransaction,
+      wallet
     )
-
+    console.log("Response signed is ", responseSigned)
+    console.log("type of Response signed is ",typeof responseSigned)
     if (!responseSigned) {
-      console.log("An error ocurred while signing transaction")
+      console.log("An error ocurred while signing transaction",responseSigned)
     }
     const data = await confirmRegisterMutation.mutateAsync({
       pendingRegistrationId: response.pendingRegistrationId,
       transactionSignature: responseSigned,
+
     })
     console.log(data)
     setIsCreating(false)

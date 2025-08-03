@@ -25,7 +25,7 @@ export function Navigation() {
     console.log("Connecting wallet ...")
     await select("Phantom")
     await connect()
-    console.log("Connecting wallet ...")
+    // console.log("Connecting wallet ...")
   }
 
   useEffect(() => {

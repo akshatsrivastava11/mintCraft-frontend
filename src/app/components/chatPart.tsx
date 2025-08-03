@@ -165,19 +165,8 @@ function ChatPart() {
   return (
     <div className="flex-1 flex flex-col h-full bg-white/90 backdrop-blur-sm">
       {/* Chat Header */}
-      <div className="bg-white brutalist-border-thick brutalist-shadow p-6">
+      <div className="bg-white brutalist-border-thick brutalist-shadow py-4 px-6 pl-50 ml-300">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="w-12 h-12 bg-fuchsia-500 brutalist-border flex items-center justify-center brutalist-shadow">
-              <Bot className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <h2 className="brutalist-subtitle text-black">AI ASSISTANT</h2>
-              <p className="brutalist-text text-xs text-gray-600">
-                {selectedModel ? `USING ${selectedModel.name}` : "SELECT MODEL TO START"}
-              </p>
-            </div>
-          </div>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

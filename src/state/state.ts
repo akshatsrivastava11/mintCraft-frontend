@@ -1,15 +1,16 @@
 import {create} from 'zustand'
 import { trpc } from '@/app/clients/trpc';
-import { PublicKey,VersionedTransaction } from '@solana/web3.js';
-import { error } from 'console';
-
+import { PublicKey,VersionedTransaction,SendTransactionError } from '@solana/web3.js'
 import {
+  WalletSendTransactionError,
+  
     type SignerWalletAdapterProps,
     type WalletAdapterProps,
    
 } from '@solana/wallet-adapter-base';
 import {Transaction,Connection} from '@solana/web3.js'
 // import { useConnection } from '@solana/wallet-adapter-react';
+const MINT_CRAFT_MODEL_REGISTRY_PROGRAM_ADDRESS="W626GLKRRbE1rPZnNgi5kHgUUfFTiyzPqdvS196NdaZ"
 // const connection=useConnection()
 const useAppstore=create((set,get)=>({
     wallet:{
@@ -24,46 +25,7 @@ const useAppstore=create((set,get)=>({
         selectedModel:null
     },
     loadAvailableModels:async ()=>{},
-    registerAiModel:async(apiEndpoint:string,
-            description:string,
-            name:string,
-            royaltyPerGeneration:number,)=>{
-    try {
-        let wallet=get().wallet;
-        console.log("wallet i s",wallet)
-        const mutation= trpc.aiModelRouter.register.useMutation({
-            onSuccess:(data)=> {
-                console.log("registration initilized",data)
-
-            },
-            onError:(error)=>{
-                console.log("Error registering AI model:",error)
-
-            }
-        })
-        const response=await mutation.mutate({apiEndpoint,description,name,royaltyPerGeneration})
-
-        console.log(response)
-        return response
-    } catch (error) {
-        console.log("Error registering AI model:",error)
-        
-    }
-    },
-    confirmRegisterAiModel:async(pendingRegistrationId:number,
-                transactionSignature:string)=>{
-        try {
-
-            const response=await trpc.aiModelRouter.confirmRegistration.mutate({
-                pendingRegistrationId,
-                transactionSignature
-            })
-            console.log(response)
-            return response
-        } catch (error) {
-            console.log("Error confirming AI model registration:",error)
-        }
-    },
+ 
     //content-type
     createContent:async ()=>{},
     loadUserContent:async ()=>{},
@@ -80,20 +42,50 @@ signingTransaction: async (
   signTransaction: SignerWalletAdapterProps['signTransaction'] | undefined,
   sendTransaction: WalletAdapterProps['sendTransaction'],
   connection: ConnectionContextState,
-  TransactionSig: string
+  TransactionSig: string,
+  wallet:PublicKey
 ) => {
   try {
     const txBuffer = Buffer.from(TransactionSig, 'base64')
     const transaction = VersionedTransaction.deserialize(txBuffer)
-
+    transaction.message.recentBlockhash = await (await connection.connection.getLatestBlockhash()).blockhash
+    // transaction.addSignature(get().wallet.publicKey, Buffer.from(TransactionSig, 'base64'))
+    console.log("Trnasaction is  ",transaction)
+    console.log("The cluster is ",connection.connection.rpcEndpoint)
+    console.log(wallet)
+    const amt=await connection.connection.getAccountInfo(wallet)
+    console.log("The amount of prior credit is ",amt?.lamports)
+    const global_state= PublicKey.findProgramAddressSync(
+        [Buffer.from("globalAiState")],
+        new PublicKey(MINT_CRAFT_MODEL_REGISTRY_PROGRAM_ADDRESS)
+    )
+    console.log("the global state is ",global_state[0].toString())
+    const getAccountInfo=await connection.connection.getAccountInfo(global_state[0])
+    console.log(getAccountInfo)
+    console.log("the balance is ",getAccountInfo?.lamports)
     if (signTransaction) {
+
+        // transaction.
+
       const signedTx = await signTransaction(transaction)
+      console.log("signedTx is  ",signedTx)
+      // signedTx.message.recentBlockhash=(await connection.connection.getLatestBlockhash()).blockhash
       const sig = await connection.connection.sendRawTransaction(signedTx.serialize())
       console.log("Submitted tx signature:", sig)
+      
+      
       await connection.connection.confirmTransaction(sig, 'processed')
+    return sig
     }
   } catch (err) {
-    console.error("Signing or sending transaction failed:", err)
+if(err instanceof SendTransactionError){
+            console.log("send transaction errors :", (await err.getLogs(new Connection("https://api.devnet.solana.com"))));
+
+            console.log("send transaction errors :", (await err.getLogs(new Connection("https://api.devnet.solana.com")))[6]);
+            console.log("send transaction errors :", (await err.getLogs(new Connection("https://api.devnet.solana.com")))[8]);
+
+        }
+  console.error("Signing or sending transaction failed:", err);
   }
 }
 

@@ -19,10 +19,11 @@ export const SolanaProvider: FC<SolanaProviderProps> = ({ children }) => {
   const network = WalletAdapterNetwork.Devnet;
 
   // You can also provide a custom RPC endpoint
-  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+const endpoint = useMemo(() => network, []);
+console.log("The endpoint is ",endpoint)
 
   return (
-    <ConnectionProvider endpoint={endpoint}>
+    <ConnectionProvider endpoint={`https://api.devnet.solana.com `}>
       <WalletProvider wallets={[]} autoConnect>
         {children}
       </WalletProvider>
