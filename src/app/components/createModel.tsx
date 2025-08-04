@@ -140,12 +140,12 @@ function CreateModel() {
     const json={
       apiEndpoint: "https://router.huggingface.co/nebius/v1/images/generations",
       description: "This AIMODEL is used to generate images",
-      name: "DemoNebiusis",
+      name: "NebiusisDemo",
       royaltyPerGeneration: 3,
-      headersJSONstring: String(`{
-				"Authorization": "Bearer ${process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY}",
+      headersJSONstring: {
+				"Authorization": `Bearer ${process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY}`,
 				"Content-Type": "application/json",
-			}`),
+      },
     }
     console.log("JSON is ", json)
     const response = await registerMutation.mutateAsync(json)

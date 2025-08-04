@@ -17,6 +17,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { trpc } from "../clients/trpc"
+import useAppstore from "@/state/state"
+import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 
 interface Message {
   id: string
@@ -46,8 +48,12 @@ type getAllModels =
   | undefined
 
 function ChatPart() {
+    const connection = useConnection
+    ()
+  
   const { data, error } = trpc.aiModelRouter.getAll.useQuery()
-
+  const { signTransaction, sendTransaction } = useWallet()
+  const { signingTransaction } = useAppstore()
   useEffect(() => {
     if (data) {
       console.log("data is", data)
@@ -147,7 +153,10 @@ function ChatPart() {
       console.log("error generating content", response)
       return
     }
+    console.log(response.message)
+    
     console.log("Response from the content generation is", response)
+    signingTransaction(signTransaction,sendTransaction,connection,response.serializedTransaction)
     setMessages((prev) => [...prev, userMessage])
     setNewMessage("")
     setIsTyping(true)

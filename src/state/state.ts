@@ -43,26 +43,21 @@ signingTransaction: async (
   sendTransaction: WalletAdapterProps['sendTransaction'],
   connection: ConnectionContextState,
   TransactionSig: string,
-  wallet:PublicKey
 ) => {
   try {
     const txBuffer = Buffer.from(TransactionSig, 'base64')
     const transaction = VersionedTransaction.deserialize(txBuffer)
     transaction.message.recentBlockhash = await (await connection.connection.getLatestBlockhash()).blockhash
     // transaction.addSignature(get().wallet.publicKey, Buffer.from(TransactionSig, 'base64'))
-    console.log("Trnasaction is  ",transaction)
+    // console.log(transaction.message.getAccountKeys().compileInstructions);
+    const accountKeys = transaction.message.getAccountKeys().staticAccountKeys; // PublicKey[]
+const instructions = transaction.message.compiledInstructions; // CompiledInstruction[]
+for (const ix of instructions) {
+  const programId = accountKeys[ix.programIdIndex];
+  console.log("🔍 Instruction targeting program:", programId.toBase58());
+}
+    // console.log("Trnasaction is  ",transaction.)
     console.log("The cluster is ",connection.connection.rpcEndpoint)
-    console.log(wallet)
-    const amt=await connection.connection.getAccountInfo(wallet)
-    console.log("The amount of prior credit is ",amt?.lamports)
-    const global_state= PublicKey.findProgramAddressSync(
-        [Buffer.from("globalAiState")],
-        new PublicKey(MINT_CRAFT_MODEL_REGISTRY_PROGRAM_ADDRESS)
-    )
-    console.log("the global state is ",global_state[0].toString())
-    const getAccountInfo=await connection.connection.getAccountInfo(global_state[0])
-    console.log(getAccountInfo)
-    console.log("the balance is ",getAccountInfo?.lamports)
     if (signTransaction) {
 
         // transaction.
