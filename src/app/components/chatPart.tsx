@@ -6,7 +6,7 @@ import { useState, useEffect, useRef } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Loader2, Send, Bot, User, Zap, ChevronDown } from "lucide-react"
+import { Loader2, Send, Bot, User, Zap, ChevronDown, Download, ExternalLink } from "lucide-react"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +25,8 @@ interface Message {
   content: string
   sender: "user" | "ai"
   timestamp: string
+  imageUrl?: string // Add image URL for AI responses
+  contentType?: "text" | "image"
 }
 
 type getAllModels =
@@ -48,8 +50,7 @@ type getAllModels =
   | undefined
 
 function ChatPart() {
-    const connection = useConnection
-    ()
+    const connection = useConnection()
     // const {wallet}=useWallet()
   const initializeUserConfig=trpc.contentRouter.initilizeUserConfig.useMutation(
     {
@@ -102,9 +103,12 @@ function ChatPart() {
   const contentGenerationMutation = trpc.contentRouter.generate.useMutation({
     onSuccess: (data) => {
       console.log("content generation response is", data)
+      return data
     },
     onError: (error) => {
       console.log("Error generating content:", error)
+      setIsLoading(false)
+      setIsTyping(false)
     },
   })
 
@@ -114,6 +118,8 @@ function ChatPart() {
     },
     onError: (error) => {
       console.log("Error generating content:", error)
+      setIsLoading(false)
+      setIsTyping(false)
     },
   })
   const mintingNftMutation = trpc.contentRouter.mintAsNft.useMutation({
@@ -162,95 +168,160 @@ function ChatPart() {
       content: "YO! I'M YOUR AI ASSISTANT. READY TO CREATE SOME SICK CONTENT?",
       sender: "ai",
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      contentType: "text"
     }
     setMessages([welcomeMessage])
   }, [])
 
   const handleSendMessage = async () => {
-    const response1=await initializeUserConfig.mutateAsync()
-    console.log("User config is ", response1)
-
-     if(!response1.serializedTransaction){
-      console.error("Account already initialized, skipping transaction signing")
-    }
-    else{
-       const responseSigned1 = await signingTransaction(
-      signTransaction,
-      sendTransaction,
-      connection,
-      response1.serializedTransaction,
-      publicKey?.toString()
-    )
-    console.log("Response signed is ", responseSigned1)
-  }
     if (!newMessage.trim()) return
-    console.log(newMessage)
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: newMessage,
-      sender: "user",
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-    }
-    if (!allModels) {
-      return
-    }
-    const aiModelUsed = allModels.find((model) => model.id === selectedAImodel)
-    if (!aiModelUsed) {
-      return
-    }
-    const response = await contentGenerationMutation.mutateAsync({
-      aiModelId: aiModelUsed.id,
-      prompt: "Generate an image of a cat riding a horse with  a rainbow in the background and a unicorn flying in the sky and a dragon breathing fire",
-      contentType: "image",
-    description: "NFTDESCRIPTIONisYesNOPLEASE",
-name: "NFTNAMEisYEsNOPLEASE",
-    })
-    if (!response.success) {
-      console.log("error generating content", response)
-      return
-    }
-    console.log(response.message)
     
-    console.log("Response from the content generation is", response)
-    const sig=await signingTransaction(signTransaction,sendTransaction,connection,response.serializedTransaction,publicKey?.toString())
-    if(sig){
-      console.log("Signature is ",sig)
-      console.log("THe respone was ",response)
-      const confirmResponse = await confirmcontentGeneration.mutateAsync({
-        transactionSignature: sig,
-        pendingContentId:response.pendingContentId,
+    setIsLoading(true)
+    setIsTyping(true)
+    
+    try {
+      const response1 = await initializeUserConfig.mutateAsync()
+      console.log("User config is ", response1)
+
+      if (!response1.serializedTransaction) {
+        console.error("Account already initialized, skipping transaction signing")
+      } else {
+        const responseSigned1 = await signingTransaction(
+          signTransaction,
+          sendTransaction,
+          connection,
+          response1.serializedTransaction,
+          publicKey?.toString()
+        )
+        console.log("Response signed is ", responseSigned1)
+      }
+
+      console.log(newMessage)
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        content: newMessage,
+        sender: "user",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        contentType: "text"
+      }
+
+      if (!allModels) {
+        setIsLoading(false)
+        setIsTyping(false)
+        return
+      }
+      
+      const aiModelUsed = allModels.find((model) => model.id === selectedAImodel)
+      if (!aiModelUsed) {
+        setIsLoading(false)
+        setIsTyping(false)
+        return
+      }
+
+      setMessages((prev) => [...prev, userMessage])
+      setNewMessage("")
+
+      const response = await contentGenerationMutation.mutateAsync({
+        aiModelId: aiModelUsed.id,
+        prompt: newMessage, // Use the actual user message instead of hardcoded prompt
+        contentType: "image",
+        description: "AI Generated Image",
+        name: "AI Generated Content",
       })
-      console.log("Confirm response is ", confirmResponse)
-      if (confirmResponse.success) {
-        console.log("Content confirmed successfully")
-        const nftMintedResponse = await mintingNftMutation.mutateAsync({
-          contentId:confirmResponse.content.id,
-          name:"NFTNAME",
-          royaltyPercentage:3,
-          symbol:"NFTSYMBOL",
+
+      if (!response.success) {
+        console.log("error generating content", response)
+        setIsLoading(false)
+        setIsTyping(false)
+        return
+      }
+
+      const sig = await signingTransaction(signTransaction, sendTransaction, connection, response.serializedTransaction, publicKey?.toString())
+      
+      if (sig) {
+        console.log("Signature is ", sig)
+        console.log("The response was ", response)
+        
+        const confirmResponse = await confirmcontentGeneration.mutateAsync({
+          transactionSignature: sig,
+          pendingContentId: response.pendingContentId,
         })
-        console.log("NFT Minted Response is ", nftMintedResponse)
-        if (nftMintedResponse.success) { 
-        const signature= await signingTransaction(signTransaction,sendTransaction,connection,nftMintedResponse.serializedTransaction,publicKey?.toString())
-        if(signature){
-          console.log("NFT Minted Signature is ", signature)
-          const confirmNftResponse = await confirmMintingNft.mutateAsync({
-            transactionSignature: signature,
-            pendingNftId:nftMintedResponse.pendingNftId,
+        
+        console.log("Confirm response is ", confirmResponse)
+        
+        if (confirmResponse.success) {
+          console.log("Content confirmed successfully")
+          
+          // Create AI response message with the generated image
+          const aiMessage: Message = {
+            id: (Date.now() + 1).toString(),
+            content: "Here's your generated image!",
+            sender: "ai",
+            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            imageUrl: response.contentUri, // Use the contentUri from the response
+            contentType: "image"
+          }
+          
+          setMessages((prev) => [...prev, aiMessage])
+          
+          const nftMintedResponse = await mintingNftMutation.mutateAsync({
+            contentId: confirmResponse.content.id,
+            name: "AI Generated NFT",
+            royaltyPercentage: 3,
+            symbol: "AIGENNFT",
           })
-          console.log("Confirm NFT Response is ", confirmNftResponse)
-          if (confirmNftResponse.success) {
-            console.log("NFT confirmed successfully")
-          } else {
-            console.error("Error confirming NFT:", confirmNftResponse.message)
+          
+          console.log("NFT Minted Response is ", nftMintedResponse)
+          
+          if (nftMintedResponse.success) {
+            const signature = await signingTransaction(signTransaction, sendTransaction, connection, nftMintedResponse.serializedTransaction, publicKey?.toString())
+            
+            if (signature) {
+              console.log("NFT Minted Signature is ", signature)
+              const confirmNftResponse = await confirmMintingNft.mutateAsync({
+                transactionSignature: signature,
+                pendingNftId: nftMintedResponse.pendingNftId,
+              })
+              
+              console.log("Confirm NFT Response is ", confirmNftResponse)
+              
+              if (confirmNftResponse.success) {
+                console.log("NFT confirmed successfully")
+                
+                // Add success message
+                const nftSuccessMessage: Message = {
+                  id: (Date.now() + 2).toString(),
+                  content: "🎉 SUCCESS! Your image has been minted as an NFT!",
+                  sender: "ai",
+                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                  contentType: "text"
+                }
+                
+                setMessages((prev) => [...prev, nftSuccessMessage])
+              } else {
+                console.error("Error confirming NFT:", confirmNftResponse.message)
+              }
+            }
           }
         }
+      }
+    } catch (error) {
+      console.error("Error in handleSendMessage:", error)
+      
+      // Add error message
+      const errorMessage: Message = {
+        id: (Date.now() + 3).toString(),
+        content: "Sorry, there was an error processing your request. Please try again.",
+        sender: "ai",
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        contentType: "text"
+      }
+      
+      setMessages((prev) => [...prev, errorMessage])
+    } finally {
+      setIsLoading(false)
+      setIsTyping(false)
     }
-  }
-  }
-    setMessages((prev) => [...prev, userMessage])
-    setNewMessage("")
-    setIsTyping(true)
   }
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -267,7 +338,6 @@ name: "NFTNAMEisYEsNOPLEASE",
       {/* Chat Header */}
       <div className="bg-white brutalist-border-thick brutalist-shadow py-4 px-6 pl-50 ml-300">
         <div className="flex items-center justify-between">
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button className="brutalist-button-cyber">
@@ -335,8 +405,48 @@ name: "NFTNAMEisYEsNOPLEASE",
               >
                 <CardContent className="p-4">
                   <p className="font-bold leading-relaxed mb-2">{message.content}</p>
+                  
+                  {/* Display image if it's an AI response with an image */}
+                  {message.sender === "ai" && message.imageUrl && message.contentType === "image" && (
+                    <div className="mt-4">
+                      <div className="relative group">
+                        <img
+                          src={`https://ipfs.io/ipfs/${message.imageUrl}`}
+                          alt="AI Generated Content"
+                          className="w-full max-w-md rounded-lg brutalist-border brutalist-shadow-lg"
+                          onError={(e) => {
+                            console.error("Error loading image:", message.imageUrl)
+                            e.currentTarget.style.display = 'none'
+                          }}
+                        />
+                        {/* Image overlay with actions */}
+                        <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
+                          <Button
+                            size="sm"
+                            className="brutalist-button-cyber p-2"
+                            onClick={() => window.open(`${message.imageUrl}`, '_blank')}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="brutalist-button-cyber p-2"
+                            onClick={() => {
+                              const link = document.createElement('a')
+                              link.href = message.imageUrl!
+                              link.download = `ai-generated-${message.id}.png`
+                              link.click()
+                            }}
+                          >
+                            <Download className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
                   <p
-                    className={`text-xs brutalist-text ${message.sender === "user" ? "text-lime-400" : "text-gray-500"}`}
+                    className={`text-xs brutalist-text mt-2 ${message.sender === "user" ? "text-lime-400" : "text-gray-500"}`}
                   >
                     {message.timestamp}
                   </p>
@@ -366,7 +476,7 @@ name: "NFTNAMEisYEsNOPLEASE",
                     <div className="w-3 h-3 bg-black animate-bounce" style={{ animationDelay: "0.1s" }}></div>
                     <div className="w-3 h-3 bg-black animate-bounce" style={{ animationDelay: "0.2s" }}></div>
                   </div>
-                  <span className="brutalist-text text-black">AI IS THINKING...</span>
+                  <span className="brutalist-text text-black">AI IS GENERATING...</span>
                 </div>
               </CardContent>
             </Card>
@@ -382,7 +492,7 @@ name: "NFTNAMEisYEsNOPLEASE",
           <div className="flex gap-4 items-end">
             <div className="flex-1">
               <Input
-                placeholder="TYPE YOUR MESSAGE..."
+                placeholder="DESCRIBE THE IMAGE YOU WANT TO GENERATE..."
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 onKeyPress={handleKeyPress}
@@ -400,7 +510,7 @@ name: "NFTNAMEisYEsNOPLEASE",
           </div>
 
           {!selectedAImodel && (
-            <p className="brutalist-text text-red-500 mt-4 text-center">SELECT AN AI MODEL TO START CHATTING!</p>
+            <p className="brutalist-text text-red-500 mt-4 text-center">SELECT AN AI MODEL TO START CREATING!</p>
           )}
         </div>
       </div>
