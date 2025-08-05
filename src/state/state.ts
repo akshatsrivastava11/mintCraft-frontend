@@ -43,32 +43,40 @@ signingTransaction: async (
   sendTransaction: WalletAdapterProps['sendTransaction'],
   connection: ConnectionContextState,
   TransactionSig: string,
+  wallet:string
 ) => {
   try {
     const txBuffer = Buffer.from(TransactionSig, 'base64')
     const transaction = VersionedTransaction.deserialize(txBuffer)
     transaction.message.recentBlockhash = await (await connection.connection.getLatestBlockhash()).blockhash
-    // transaction.addSignature(get().wallet.publicKey, Buffer.from(TransactionSig, 'base64'))
-    // console.log(transaction.message.getAccountKeys().compileInstructions);
-    const accountKeys = transaction.message.getAccountKeys().staticAccountKeys; // PublicKey[]
-const instructions = transaction.message.compiledInstructions; // CompiledInstruction[]
-for (const ix of instructions) {
-  const programId = accountKeys[ix.programIdIndex];
-  console.log("🔍 Instruction targeting program:", programId.toBase58());
-}
-    // console.log("Trnasaction is  ",transaction.)
-    console.log("The cluster is ",connection.connection.rpcEndpoint)
+const config=await PublicKey.findProgramAddressSync(
+     [Buffer.from("config")],
+     new PublicKey("FqDJgJMNxGqpR8p3A7mtp4Cyow2DiXrXFoGCL1RXYsvU")
+ )
+ const connectionnew = new Connection("https://api.devnet.solana.com");
+
+ // ✅ Derive user_config PDA
+ const [userConfigPda] = PublicKey.findProgramAddressSync(
+     [Buffer.from("user_config"), config[0].toBuffer(),new PublicKey(wallet).toBuffer()],
+     new PublicKey("FqDJgJMNxGqpR8p3A7mtp4Cyow2DiXrXFoGCL1RXYsvU") // replace with your actual programId
+ );
+ console.log("userconfigdpa is ",userConfigPda)
+
+ // ✅ Check if the PDA exists
+ const accountInfo = await connectionnew.getAccountInfo(userConfigPda, {
+     commitment: "confirmed",
+ });
+ console.log("accountinfo is ",accountInfo)
     if (signTransaction) {
 
         // transaction.
-
+      transaction.message.recentBlockhash=(await connection.connection.getLatestBlockhash()).blockhash
       const signedTx = await signTransaction(transaction)
+      
       console.log("signedTx is  ",signedTx)
       // signedTx.message.recentBlockhash=(await connection.connection.getLatestBlockhash()).blockhash
       const sig = await connection.connection.sendRawTransaction(signedTx.serialize())
       console.log("Submitted tx signature:", sig)
-      
-      
       await connection.connection.confirmTransaction(sig, 'processed')
     return sig
     }

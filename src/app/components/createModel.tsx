@@ -130,7 +130,6 @@ function CreateModel() {
       sendTransaction,
       connection,
       response1.serializedTransaction,
-      wallet
     )
     console.log("Response signed is ", responseSigned1)
   }
@@ -140,7 +139,7 @@ function CreateModel() {
     const json={
       apiEndpoint: "https://router.huggingface.co/nebius/v1/images/generations",
       description: "This AIMODEL is used to generate images",
-      name: "NebiusisDemo",
+      name: "NebiusTestDemo",
       royaltyPerGeneration: 3,
       headersJSONstring: {
 				"Authorization": `Bearer ${process.env.NEXT_PUBLIC_HUGGINGFACE_API_KEY}`,
@@ -168,7 +167,6 @@ function CreateModel() {
     const data = await confirmRegisterMutation.mutateAsync({
       pendingRegistrationId: response.pendingRegistrationId,
       transactionSignature: responseSigned,
-
     })
     console.log(data)
     setIsCreating(false)

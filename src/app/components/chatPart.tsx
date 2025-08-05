@@ -1,5 +1,5 @@
+//@ts-nocheck
 "use client"
-
 import type React from "react"
 
 import { useState, useEffect, useRef } from "react"
@@ -50,9 +50,20 @@ type getAllModels =
 function ChatPart() {
     const connection = useConnection
     ()
-  
+    // const {wallet}=useWallet()
+  const initializeUserConfig=trpc.contentRouter.initilizeUserConfig.useMutation(
+    {
+      onSuccess(data) {
+        console.log("User config initialized", data)
+      },
+      onError(error) {
+        console.error("Error initializing user config:", error)
+      },
+    }
+  )
+  // initializeUserConfig.mutateAsync
   const { data, error } = trpc.aiModelRouter.getAll.useQuery()
-  const { signTransaction, sendTransaction } = useWallet()
+  const { signTransaction, sendTransaction,publicKey } = useWallet()
   const { signingTransaction } = useAppstore()
   useEffect(() => {
     if (data) {
@@ -97,6 +108,35 @@ function ChatPart() {
     },
   })
 
+  const confirmcontentGeneration = trpc.contentRouter.confirmContentSubmission.useMutation({
+    onSuccess: (data) => {
+      console.log("content generation response is", data)
+    },
+    onError: (error) => {
+      console.log("Error generating content:", error)
+    },
+  })
+  const mintingNftMutation = trpc.contentRouter.mintAsNft.useMutation({
+    onSuccess: (data) => {
+      console.log("NFT minting response is", data)
+      setIsLoading(false)
+      setIsTyping(false)
+    },
+    onError: (error) => {
+      console.log("Error minting NFT:", error)
+      setIsLoading(false)
+      setIsTyping(false)
+    },
+  })
+  const confirmMintingNft = trpc.contentRouter.confirmNFTSubmission.useMutation({
+    onSuccess: (data) => {
+      console.log("NFT minting confirmation response is", data)
+    },
+    onError: (error) => {
+      console.log("Error confirming NFT minting:", error)
+    },
+  })
+
   useEffect(() => {
     if (data) {
       const x = data
@@ -127,6 +167,22 @@ function ChatPart() {
   }, [])
 
   const handleSendMessage = async () => {
+    const response1=await initializeUserConfig.mutateAsync()
+    console.log("User config is ", response1)
+
+     if(!response1.serializedTransaction){
+      console.error("Account already initialized, skipping transaction signing")
+    }
+    else{
+       const responseSigned1 = await signingTransaction(
+      signTransaction,
+      sendTransaction,
+      connection,
+      response1.serializedTransaction,
+      publicKey?.toString()
+    )
+    console.log("Response signed is ", responseSigned1)
+  }
     if (!newMessage.trim()) return
     console.log(newMessage)
     const userMessage: Message = {
@@ -144,10 +200,10 @@ function ChatPart() {
     }
     const response = await contentGenerationMutation.mutateAsync({
       aiModelId: aiModelUsed.id,
-      prompt: userMessage.content,
+      prompt: "Generate an image of a cat riding a horse with  a rainbow in the background and a unicorn flying in the sky and a dragon breathing fire",
       contentType: "image",
-      description: "desc of nft",
-      name: "name of nft",
+    description: "NFTDESCRIPTIONisYesNOPLEASE",
+name: "NFTNAMEisYEsNOPLEASE",
     })
     if (!response.success) {
       console.log("error generating content", response)
@@ -156,7 +212,42 @@ function ChatPart() {
     console.log(response.message)
     
     console.log("Response from the content generation is", response)
-    signingTransaction(signTransaction,sendTransaction,connection,response.serializedTransaction)
+    const sig=await signingTransaction(signTransaction,sendTransaction,connection,response.serializedTransaction,publicKey?.toString())
+    if(sig){
+      console.log("Signature is ",sig)
+      console.log("THe respone was ",response)
+      const confirmResponse = await confirmcontentGeneration.mutateAsync({
+        transactionSignature: sig,
+        pendingContentId:response.pendingContentId,
+      })
+      console.log("Confirm response is ", confirmResponse)
+      if (confirmResponse.success) {
+        console.log("Content confirmed successfully")
+        const nftMintedResponse = await mintingNftMutation.mutateAsync({
+          contentId:confirmResponse.content.id,
+          name:"NFTNAME",
+          royaltyPercentage:3,
+          symbol:"NFTSYMBOL",
+        })
+        console.log("NFT Minted Response is ", nftMintedResponse)
+        if (nftMintedResponse.success) { 
+        const signature= await signingTransaction(signTransaction,sendTransaction,connection,nftMintedResponse.serializedTransaction,publicKey?.toString())
+        if(signature){
+          console.log("NFT Minted Signature is ", signature)
+          const confirmNftResponse = await confirmMintingNft.mutateAsync({
+            transactionSignature: signature,
+            pendingNftId:nftMintedResponse.pendingNftId,
+          })
+          console.log("Confirm NFT Response is ", confirmNftResponse)
+          if (confirmNftResponse.success) {
+            console.log("NFT confirmed successfully")
+          } else {
+            console.error("Error confirming NFT:", confirmNftResponse.message)
+          }
+        }
+    }
+  }
+  }
     setMessages((prev) => [...prev, userMessage])
     setNewMessage("")
     setIsTyping(true)

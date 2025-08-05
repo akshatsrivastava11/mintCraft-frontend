@@ -13,7 +13,7 @@ export function Navigation() {
   const { wallet } = useAppstore()
 
   const connectWalletMutation = trpc.authRouter.connectWallet.useMutation({
-    onSuccess(data, variables, context) {
+    onSuccess(data) {
       console.log("wallet connected", data)
     },
     onError(error) {
@@ -35,6 +35,7 @@ export function Navigation() {
     console.log("Publickey is ", publicKey?.toString())
     if (publicKey) {
       ;(async () => {
+        console.log("Publickey is before mutation ", publicKey)
         const response = await connectWalletMutation.mutate({ walletAddress: publicKey?.toString() })
         console.log("Publickey is after mutation ", publicKey)
         console.log("REsponse i s", response)
