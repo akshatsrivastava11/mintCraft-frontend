@@ -392,12 +392,13 @@ h6 {
 
 .brutalist-title {
   @apply text-4xl font-black uppercase tracking-widest;
-  text-shadow: 1px 1px 0px #000000;
+  color:#010101;
+  /* text-shadow: 1px 1px 0px #000000; */
 }
 
 .brutalist-subtitle {
   @apply text-xl font-black uppercase tracking-wider;
-  text-shadow: 1px 1px 0px #000000;
+  /* text-shadow: 1px 1px 0px #000000; */
 }
 
 .brutalist-text {

@@ -334,9 +334,9 @@ function ChatPart() {
   const selectedModel = allModels?.find((model) => model.id === selectedAImodel)
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-white/90 backdrop-blur-sm">
+    <div className="flex-1 flex flex-col h-full bg-white backdrop-blur-sm">
       {/* Chat Header */}
-      <div className="bg-white brutalist-border-thick brutalist-shadow py-4 px-6 pl-50 ml-300">
+      <div className="bg-white brutalist-border-thick brutalist-shadow py-4 px-6 pl-50 ml-300 mt-1">
         <div className="flex items-center justify-between">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -346,7 +346,7 @@ function ChatPart() {
                 <ChevronDown className="w-4 h-4 ml-2" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80 bg-white brutalist-border brutalist-shadow">
+            <DropdownMenuContent align="end" className="w-80 bg-gray-500 brutalist-border brutalist-shadow">
               <DropdownMenuLabel className="brutalist-text text-black p-4">CHOOSE AI MODEL</DropdownMenuLabel>
               <DropdownMenuGroup>
                 <DropdownMenuRadioGroup value={position} onValueChange={(val) => setSelectedAImodel(Number(val))}>
@@ -487,7 +487,7 @@ function ChatPart() {
       </div>
 
       {/* Message Input */}
-      <div className="bg-white/95 backdrop-blur-sm brutalist-border-thick brutalist-shadow-lg p-6">
+      <div className="bg-white/95 backdrop-blur-sm brutalist-border-thick brutalist-shadow-lg p-6 w-[50vw] mx-auto mb-7">
         <div className="max-w-4xl mx-auto">
           <div className="flex gap-4 items-end">
             <div className="flex-1">

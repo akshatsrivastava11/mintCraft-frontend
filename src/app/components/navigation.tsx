@@ -6,9 +6,13 @@ import { useWallet } from "@solana/wallet-adapter-react"
 import { useEffect } from "react"
 import { trpc } from "../clients/trpc"
 import { Wallet, Home, Bot, ShoppingBag, Square } from "lucide-react"
+import { useRouter, usePathname } from "next/navigation"
+import Link from "next/link"
 
 export function Navigation() {
   const { connect, select, publicKey, sendTransaction, disconnect } = useWallet()
+  const router = useRouter()
+  const pathname = usePathname()
 
   const { wallet } = useAppstore()
 
@@ -47,33 +51,47 @@ export function Navigation() {
     await disconnect()
   }
 
+  const isActive = (path: string) => pathname === path
+
   return (
     <nav className="bg-white/95 backdrop-blur-sm brutalist-border-thick brutalist-shadow-lg">
       <div className="max-w-7xl mx-auto px-6 py-6">
         <div className="flex items-center justify-between">
           {/* Logo and Brand */}
           <div className="flex items-center space-x-8">
-            <div className="flex items-center space-x-4">
+            <Link href="/home" className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-black brutalist-border flex items-center justify-center brutalist-shadow">
                 <Square className="w-6 h-6 text-lime-400 fill-current" />
               </div>
               <h1 className="brutalist-title text-black">MINTCRAFT</h1>
-            </div>
+            </Link>
 
             {/* Navigation Links */}
             <div className="hidden md:flex space-x-4">
-              <Button className="brutalist-button-electric">
-                <Home className="w-5 h-5 mr-2" />
-                HOME
-              </Button>
-              <Button className="brutalist-button">
-                <Bot className="w-5 h-5 mr-2" />
-                AGENTS
-              </Button>
-              <Button className="brutalist-button">
-                <ShoppingBag className="w-5 h-5 mr-2" />
-                MARKET
-              </Button>
+              <Link href="/home">
+                <Button className={`${isActive("/home") ? "brutalist-button-electric" : "brutalist-button"}`}>
+                  <Home className="w-5 h-5 mr-2" />
+                  HOME
+                </Button>
+              </Link>
+              <Link href="/chat">
+                <Button className={`${isActive("/chat") ? "brutalist-button-electric" : "brutalist-button"}`}>
+                  <Bot className="w-5 h-5 mr-2" />
+                  CHAT
+                </Button>
+              </Link>
+              <Link href="/developers">
+                <Button className={`${isActive("/developers") ? "brutalist-button-electric" : "brutalist-button"}`}>
+                  <Bot className="w-5 h-5 mr-2" />
+                  AGENTS
+                </Button>
+              </Link>
+              <Link href="/marketplace">
+                <Button className={`${isActive("/marketplace") ? "brutalist-button-electric" : "brutalist-button"}`}>
+                  <ShoppingBag className="w-5 h-5 mr-2" />
+                  MARKET
+                </Button>
+              </Link>
             </div>
           </div>
 
