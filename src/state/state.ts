@@ -75,6 +75,7 @@ const config=await PublicKey.findProgramAddressSync(
       
       console.log("signedTx is  ",signedTx)
       // signedTx.message.recentBlockhash=(await connection.connection.getLatestBlockhash()).blockhash
+      // signedTx.message.recentBlockhash=(await connection.connection.getLatestBlockhash()).blockhash
       const sig = await connection.connection.sendRawTransaction(signedTx.serialize())
       console.log("Submitted tx signature:", sig)
       await connection.connection.confirmTransaction(sig, 'processed')
