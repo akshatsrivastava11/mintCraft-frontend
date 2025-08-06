@@ -13,171 +13,103 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Search,
-  Filter,
-  ShoppingCart,
-  Zap,
-  TrendingUp,
-  Eye,
-  Heart,
-  ChevronDown,
-  Coins,
-  Star,
-  Clock,
-  Users,
-  AlertCircle,
-  CheckCircle,
-  Loader2,
-} from "lucide-react"
+import { Search, Filter, ShoppingCart, Zap, TrendingUp, Eye, Heart, ChevronDown, Coins, Star, Clock, Users, AlertCircle, CheckCircle, Loader2, RefreshCw } from 'lucide-react'
 import { Navigation } from "./navigation"
 import { showToast } from "@/lib/toast"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "react-hot-toast"
 import { useWallet } from "@solana/wallet-adapter-react"
+import { trpc } from "../clients/trpc"
 
 interface NFTListing {
-  id: string
-  name: string
-  description: string
-  price: number
-  currency: "SOL" | "USDC"
-  image: string
-  creator: string
-  owner: string
-  category: "ART" | "MUSIC" | "GAMING" | "UTILITY" | "COLLECTIBLE"
-  rarity: "COMMON" | "RARE" | "EPIC" | "LEGENDARY"
-  likes: number
-  views: number
-  isLiked: boolean
+  price: bigint
+  marketplaceId: number | null
+  id: number
+  nftId: number
+  listingId: number
+  sellerId: number
   createdAt: string
-  isAvailable: boolean
+  updatedAt: string
+  isActive: boolean
+  // Extended properties for UI
+  name?: string
+  description?: string
+  image?: string
+  creator?: string
+  owner?: string
+  category?: string
+  rarity?: string
+  likes?: number
+  views?: number
+  isLiked?: boolean
+  currency?: string
+  isAvailable?: boolean
 }
-
-const mockNFTs: NFTListing[] = [
-  {
-    id: "1",
-    name: "CYBER PUNK WARRIOR",
-    description: "FUTURISTIC WARRIOR FROM THE DIGITAL REALM",
-    price: 2.5,
-    currency: "SOL",
-    image: "/placeholder.svg?height=300&width=300",
-    creator: "DIGITAL_ARTIST_01",
-    owner: "COLLECTOR_ALPHA",
-    category: "ART",
-    rarity: "LEGENDARY",
-    likes: 234,
-    views: 1420,
-    isLiked: false,
-    createdAt: "2024-01-15",
-    isAvailable: true,
-  },
-  {
-    id: "2",
-    name: "NEON CITY NIGHTS",
-    description: "VIBRANT CITYSCAPE WITH ELECTRIC VIBES",
-    price: 1.8,
-    currency: "SOL",
-    image: "/placeholder.svg?height=300&width=300",
-    creator: "URBAN_CREATOR",
-    owner: "NIGHT_TRADER",
-    category: "ART",
-    rarity: "EPIC",
-    likes: 156,
-    views: 890,
-    isLiked: true,
-    createdAt: "2024-01-12",
-    isAvailable: true,
-  },
-  {
-    id: "3",
-    name: "BASS DROP BEATS",
-    description: "ELECTRONIC MUSIC NFT WITH EXCLUSIVE RIGHTS",
-    price: 0.75,
-    currency: "SOL",
-    image: "/placeholder.svg?height=300&width=300",
-    creator: "BEAT_MASTER",
-    owner: "MUSIC_LOVER",
-    category: "MUSIC",
-    rarity: "RARE",
-    likes: 89,
-    views: 445,
-    isLiked: false,
-    createdAt: "2024-01-10",
-    isAvailable: false,
-  },
-  {
-    id: "4",
-    name: "PIXEL SWORD LEGENDARY",
-    description: "RARE GAMING WEAPON WITH SPECIAL ABILITIES",
-    price: 3.2,
-    currency: "SOL",
-    image: "/placeholder.svg?height=300&width=300",
-    creator: "GAME_FORGE",
-    owner: "PIXEL_WARRIOR",
-    category: "GAMING",
-    rarity: "LEGENDARY",
-    likes: 312,
-    views: 2100,
-    isLiked: true,
-    createdAt: "2024-01-08",
-    isAvailable: true,
-  },
-  {
-    id: "5",
-    name: "UTILITY TOKEN ACCESS",
-    description: "EXCLUSIVE ACCESS TO PREMIUM FEATURES",
-    price: 150,
-    currency: "USDC",
-    image: "/placeholder.svg?height=300&width=300",
-    creator: "UTILITY_LABS",
-    owner: "ACCESS_HOLDER",
-    category: "UTILITY",
-    rarity: "COMMON",
-    likes: 67,
-    views: 234,
-    isLiked: false,
-    createdAt: "2024-01-05",
-    isAvailable: true,
-  },
-  {
-    id: "6",
-    name: "RETRO ROBOT COLLECTION",
-    description: "VINTAGE ROBOT FROM THE CLASSIC SERIES",
-    price: 1.2,
-    currency: "SOL",
-    image: "/placeholder.svg?height=300&width=300",
-    creator: "RETRO_STUDIO",
-    owner: "ROBOT_FAN",
-    category: "COLLECTIBLE",
-    rarity: "RARE",
-    likes: 178,
-    views: 756,
-    isLiked: false,
-    createdAt: "2024-01-03",
-    isAvailable: true,
-  },
-]
 
 function MarketplacePage() {
   const { connected, publicKey } = useWallet()
-  const [nfts, setNfts] = useState<NFTListing[]>([])
   const [filteredNfts, setFilteredNfts] = useState<NFTListing[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL")
   const [selectedRarity, setSelectedRarity] = useState<string>("ALL")
   const [sortBy, setSortBy] = useState<string>("NEWEST")
   const [priceRange, setPriceRange] = useState<string>("ALL")
-  const [isLoading, setIsLoading] = useState(true)
-  const [purchasingNfts, setPurchasingNfts] = useState<Set<string>>(new Set())
-  const [error, setError] = useState<string | null>(null)
+  const [purchasingNfts, setPurchasingNfts] = useState<Set<number>>(new Set())
+  const [likedNfts, setLikedNfts] = useState<Set<number>>(new Set())
 
   const categories = ["ALL", "ART", "MUSIC", "GAMING", "UTILITY", "COLLECTIBLE"]
   const rarities = ["ALL", "COMMON", "RARE", "EPIC", "LEGENDARY"]
   const sortOptions = ["NEWEST", "OLDEST", "PRICE_LOW", "PRICE_HIGH", "MOST_LIKED"]
   const priceRanges = ["ALL", "UNDER_1", "1_TO_5", "OVER_5"]
 
+  // tRPC Queries
+  const {
+    data: allListings,
+    isLoading: isLoadingListings,
+    error: listingsError,
+    refetch: refetchListings
+  } = trpc.marketplaceRouter.getListings.useQuery(undefined, {
+    retry: 3,
+    retryDelay: 1000,
+  })
+  console.log("allListings", allListings)
+  useEffect(()=>{
+    refetchListings()
+  },[])
+
+  const {
+    data: myListings,
+    isLoading: isLoadingMyListings,
+    error: myListingsError,
+  } = trpc.marketplaceRouter.getMyListings.useQuery(undefined, {
+    enabled: connected,
+    retry: 2,
+  })
+  
+  // tRPC Mutations
+  // setFilteredNfts(getAllNftListings.data)/
+  const buyNftMutation = trpc.marketplaceRouter.buyNft.useMutation({
+    onSuccess: (data, variables) => {
+      showToast.success("NFT purchased successfully!")
+      setPurchasingNfts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(variables.listingId)
+        return newSet
+      })
+      // Refetch listings to get updated data
+      refetchListings()
+    },
+    onError: (error, variables) => {
+      console.error("Error buying NFT:", error)
+      showToast.error(`Failed to purchase NFT: ${error.message}`)
+      setPurchasingNfts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(variables.listingId)
+        return newSet
+      })
+    },
+  })
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
       case "LEGENDARY":
@@ -207,167 +139,128 @@ function MarketplacePage() {
         return "bg-orange-500 text-white"
       default:
         return "bg-gray-300 text-black"
+      }
     }
-  }
 
-  const handleLike = async (nftId: string) => {
+  const handleLike = async (nftId: number) => {
     if (!connected) {
       showToast.error("Connect your wallet to like NFTs!")
       return
     }
-
+    
     try {
-      setNfts((prev) =>
-        prev.map((nft) =>
-          nft.id === nftId
-            ? {
-                ...nft,
-                isLiked: !nft.isLiked,
-                likes: nft.isLiked ? nft.likes - 1 : nft.likes + 1,
-              }
-            : nft,
-        ),
-      )
+      setLikedNfts(prev => {
+        const newSet = new Set(prev)
+        if (newSet.has(nftId)) {
+          newSet.delete(nftId)
+        } else {
+          newSet.add(nftId)
+        }
+        return newSet
+      })
 
-      // Simulate API call
+      // Simulate API call for liking
       await new Promise((resolve) => setTimeout(resolve, 500))
       showToast.success("Preference updated!")
     } catch (error) {
       console.error("Error updating like:", error)
       showToast.error("Failed to update preference")
-
       // Revert the change
-      setNfts((prev) =>
-        prev.map((nft) =>
-          nft.id === nftId
-            ? {
-                ...nft,
-                isLiked: !nft.isLiked,
-                likes: nft.isLiked ? nft.likes + 1 : nft.likes - 1,
-              }
-            : nft,
-        ),
-      )
-    }
-  }
-
-  const handleBuy = async (nftId: string) => {
-    if (!connected) {
-      showToast.error("Connect your wallet to purchase NFTs!")
-      return
-    }
-
-    const nft = nfts.find((n) => n.id === nftId)
-    if (!nft) {
-      showToast.error("NFT not found!")
-      return
-    }
-
-    if (!nft.isAvailable) {
-      showToast.error("This NFT is no longer available!")
-      return
-    }
-
-    setPurchasingNfts((prev) => new Set(prev).add(nftId))
-
-    try {
-      await showToast.promise(
-        new Promise((resolve, reject) => {
-          setTimeout(() => {
-            // Simulate random success/failure for demo
-            if (Math.random() > 0.2) {
-              resolve(true)
-            } else {
-              reject(new Error("Transaction failed"))
-            }
-          }, 3000)
-        }),
-        {
-          loading: `Purchasing ${nft.name}...`,
-          success: `🎉 Successfully purchased ${nft.name}!`,
-          error: "Purchase failed. Please try again.",
-        },
-      )
-
-      // Update NFT availability
-      setNfts((prev) =>
-        prev.map((n) =>
-          n.id === nftId ? { ...n, isAvailable: false, owner: publicKey?.toString().slice(0, 8) + "..." || "You" } : n,
-        ),
-      )
-    } catch (error: any) {
-      console.error("Purchase error:", error)
-    } finally {
-      setPurchasingNfts((prev) => {
+      setLikedNfts(prev => {
         const newSet = new Set(prev)
-        newSet.delete(nftId)
+        if (newSet.has(nftId)) {
+          newSet.delete(nftId)
+        } else {
+          newSet.add(nftId)
+        }
         return newSet
       })
     }
   }
 
-  const loadNFTs = async () => {
+  const handleBuy = async (listing: NFTListing) => {
+    if (!connected) {
+      showToast.error("Connect your wallet to purchase NFTs!")
+      return
+    }
+
+    if (!listing.isActive) {
+      showToast.error("This NFT is no longer available!")
+      return
+    }
+    
+    setPurchasingNfts(prev => new Set(prev).add(listing.id))
+
     try {
-      setIsLoading(true)
-      setError(null)
-
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
-
-      // Simulate occasional network error
-      if (Math.random() < 0.1) {
-        throw new Error("Network error: Unable to load NFTs")
-      }
-
-      setNfts(mockNFTs)
-      showToast.success("NFTs loaded successfully!")
-    } catch (error: any) {
-      console.error("Error loading NFTs:", error)
-      setError(error.message)
-      showToast.error("Failed to load NFTs")
-    } finally {
-      setIsLoading(false)
+      await buyNftMutation.mutateAsync({
+        listingId: listing.listingId,
+        nftId: listing.nftId,
+        price: listing.price,
+      })
+    } catch (error) {
+      // Error handling is done in the mutation's onError callback
+      console.error("Purchase error:", error)
     }
   }
 
+  // const getAllNftListings=trpc.marketplaceRouter.getListings.useQuery()
+  // if(!getAllNftListings.data){
+  //   return <LoadingSpinner />
+  // }
+  // // allListings= getAllNftListings.data
+  // setFilteredNfts(getAllNftListings.data)
+  // Process and filter NFTs
   useEffect(() => {
-    loadNFTs()
-  }, [])
+    if (!allListings) return
+    
+    let processed = allListings.map((listing): NFTListing => ({
+      ...listing,
+      // Add mock UI data for demo purposes
+      name: `NFT #${listing.nftId}`,
+      description: `Unique digital asset from listing ${listing.listingId}`,
+      image: `/placeholder.svg?height=300&width=300&text=NFT+${listing.nftId}`,
+      creator: `Creator_${listing.sellerId}`,
+      owner: `Owner_${listing.sellerId}`,
+      category: ["ART", "MUSIC", "GAMING", "UTILITY", "COLLECTIBLE"][listing.nftId % 5],
+      rarity: ["COMMON", "RARE", "EPIC", "LEGENDARY"][listing.nftId % 4],
+      likes: Math.floor(Math.random() * 500),
+      views: Math.floor(Math.random() * 2000),
+      isLiked: likedNfts.has(listing.id),
+      currency: "SOL",
+      isAvailable: listing.isActive,
+      
+    }))
 
-  useEffect(() => {
-    let filtered = [...nfts]
-
-    // Search filter
+    // Apply filters
     if (searchQuery) {
-      filtered = filtered.filter(
+      processed = processed.filter(
         (nft) =>
-          nft.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          nft.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          nft.creator.toLowerCase().includes(searchQuery.toLowerCase()),
+          nft.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          nft.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          nft.creator?.toLowerCase().includes(searchQuery.toLowerCase())
       )
     }
 
-    // Category filter
     if (selectedCategory !== "ALL") {
-      filtered = filtered.filter((nft) => nft.category === selectedCategory)
+      processed = processed.filter((nft) => nft.category === selectedCategory)
     }
 
-    // Rarity filter
     if (selectedRarity !== "ALL") {
-      filtered = filtered.filter((nft) => nft.rarity === selectedRarity)
+      processed = processed.filter((nft) => nft.rarity === selectedRarity)
     }
 
-    // Price range filter
     if (priceRange !== "ALL") {
       switch (priceRange) {
         case "UNDER_1":
-          filtered = filtered.filter((nft) => nft.price < 1)
+          processed = processed.filter((nft) => Number(nft.price) < 1000000000) // 1 SOL in lamports
           break
         case "1_TO_5":
-          filtered = filtered.filter((nft) => nft.price >= 1 && nft.price <= 5)
+          processed = processed.filter((nft) => 
+            Number(nft.price) >= 1000000000 && Number(nft.price) <= 5000000000
+          )
           break
         case "OVER_5":
-          filtered = filtered.filter((nft) => nft.price > 5)
+          processed = processed.filter((nft) => Number(nft.price) > 5000000000)
           break
       }
     }
@@ -375,26 +268,27 @@ function MarketplacePage() {
     // Sort
     switch (sortBy) {
       case "NEWEST":
-        filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        processed.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         break
       case "OLDEST":
-        filtered.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        processed.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
         break
       case "PRICE_LOW":
-        filtered.sort((a, b) => a.price - b.price)
+        processed.sort((a, b) => Number(a.price) - Number(b.price))
         break
       case "PRICE_HIGH":
-        filtered.sort((a, b) => b.price - a.price)
+        processed.sort((a, b) => Number(b.price) - Number(a.price))
         break
       case "MOST_LIKED":
-        filtered.sort((a, b) => b.likes - a.likes)
+        processed.sort((a, b) => (b.likes || 0) - (a.likes || 0))
         break
     }
 
-    setFilteredNfts(filtered)
-  }, [nfts, searchQuery, selectedCategory, selectedRarity, sortBy, priceRange])
+    setFilteredNfts(processed)
+  }, [allListings, searchQuery, selectedCategory, selectedRarity, sortBy, priceRange, likedNfts])
 
-  if (isLoading) {
+  // Loading state
+  if (isLoadingListings) {
     return (
       <div className="min-h-screen bg-white/90 backdrop-blur-sm">
         <Navigation />
@@ -405,7 +299,8 @@ function MarketplacePage() {
     )
   }
 
-  if (error && nfts.length === 0) {
+  // Error state
+  if (listingsError) {
     return (
       <div className="min-h-screen bg-white/90 backdrop-blur-sm">
         <Navigation />
@@ -416,8 +311,19 @@ function MarketplacePage() {
                 <AlertCircle className="w-8 h-8 text-red-500" />
               </div>
               <h2 className="brutalist-title text-white text-2xl mb-4">MARKETPLACE ERROR!</h2>
-              <p className="brutalist-text text-white text-sm mb-6">{error}</p>
-              <Button onClick={loadNFTs} className="brutalist-button-electric w-full">
+              <p className="brutalist-text text-white text-sm mb-6">
+                {listingsError.message || "Failed to load NFT listings"}
+              </p>
+              <Button 
+                onClick={() => refetchListings()} 
+                className="brutalist-button-electric w-full"
+                disabled={isLoadingListings}
+              >
+                {isLoadingListings ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
                 TRY AGAIN
               </Button>
             </CardContent>
@@ -427,12 +333,13 @@ function MarketplacePage() {
     )
   }
 
+  const nfts = allListings || []
+
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-white/90 backdrop-blur-sm">
         <Toaster />
         <Navigation />
-
         <div className="max-w-7xl mx-auto p-8">
           {/* Header */}
           <div className="text-center mb-12">
@@ -468,35 +375,36 @@ function MarketplacePage() {
                 <p className="brutalist-text text-black text-xs">TOTAL NFTS</p>
               </CardContent>
             </Card>
-
             <Card className="bg-cyan-400 brutalist-border brutalist-shadow hover:brutalist-shadow-lg transition-all duration-200">
               <CardContent className="p-4 text-center">
                 <div className="w-8 h-8 bg-black brutalist-border mx-auto mb-2 flex items-center justify-center">
                   <Users className="w-4 h-4 text-cyan-400" />
                 </div>
-                <p className="text-2xl font-black text-black">{new Set(nfts.map((n) => n.creator)).size}</p>
-                <p className="brutalist-text text-black text-xs">CREATORS</p>
+                <p className="text-2xl font-black text-black">
+                  {new Set(nfts.map((n) => n.sellerId)).size}
+                </p>
+                <p className="brutalist-text text-black text-xs">SELLERS</p>
               </CardContent>
             </Card>
-
             <Card className="bg-yellow-400 brutalist-border brutalist-shadow hover:brutalist-shadow-lg transition-all duration-200">
               <CardContent className="p-4 text-center">
                 <div className="w-8 h-8 bg-black brutalist-border mx-auto mb-2 flex items-center justify-center">
                   <TrendingUp className="w-4 h-4 text-yellow-400" />
                 </div>
                 <p className="text-2xl font-black text-black">
-                  {nfts.reduce((sum, nft) => sum + nft.price, 0).toFixed(1)}
+                  {(nfts.reduce((sum, nft) => sum + Number(nft.price), 0) / 1000000000).toFixed(1)}
                 </p>
                 <p className="brutalist-text text-black text-xs">SOL VOLUME</p>
               </CardContent>
             </Card>
-
             <Card className="bg-red-500 brutalist-border brutalist-shadow hover:brutalist-shadow-lg transition-all duration-200">
               <CardContent className="p-4 text-center">
                 <div className="w-8 h-8 bg-black brutalist-border mx-auto mb-2 flex items-center justify-center">
                   <CheckCircle className="w-4 h-4 text-red-500" />
                 </div>
-                <p className="text-2xl font-black text-white">{nfts.filter((n) => n.isAvailable).length}</p>
+                <p className="text-2xl font-black text-white">
+                  {nfts.filter((n) => n.isActive).length}
+                </p>
                 <p className="brutalist-text text-white text-xs">AVAILABLE</p>
               </CardContent>
             </Card>
@@ -556,7 +464,11 @@ function MarketplacePage() {
                   <DropdownMenuLabel className="brutalist-text text-black">RARITY</DropdownMenuLabel>
                   <DropdownMenuRadioGroup value={selectedRarity} onValueChange={setSelectedRarity}>
                     {rarities.map((rarity) => (
-                      <DropdownMenuRadioItem key={rarity} value={rarity} className="hover:bg-lime-400 brutalist-text">
+                      <DropdownMenuRadioItem 
+                        key={rarity} 
+                        value={rarity} 
+                        className="hover:bg-lime-400 brutalist-text"
+                      >
                         {rarity}
                       </DropdownMenuRadioItem>
                     ))}
@@ -605,7 +517,11 @@ function MarketplacePage() {
                   <DropdownMenuLabel className="brutalist-text text-black">SORT BY</DropdownMenuLabel>
                   <DropdownMenuRadioGroup value={sortBy} onValueChange={setSortBy}>
                     {sortOptions.map((option) => (
-                      <DropdownMenuRadioItem key={option} value={option} className="hover:bg-lime-400 brutalist-text">
+                      <DropdownMenuRadioItem 
+                        key={option} 
+                        value={option} 
+                        className="hover:bg-lime-400 brutalist-text"
+                      >
                         {option.replace("_", " ")}
                       </DropdownMenuRadioItem>
                     ))}
@@ -620,8 +536,16 @@ function MarketplacePage() {
             <p className="brutalist-text text-black">
               SHOWING {filteredNfts.length} OF {nfts.length} NFTS
             </p>
-            <Button onClick={loadNFTs} className="brutalist-button-cyber" disabled={isLoading}>
-              {isLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
+            <Button 
+              onClick={() => refetchListings()} 
+              className="brutalist-button-cyber" 
+              disabled={isLoadingListings}
+            >
+              {isLoadingListings ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-2" />
+              )}
               REFRESH
             </Button>
           </div>
@@ -637,15 +561,15 @@ function MarketplacePage() {
                   <div className="relative">
                     <img
                       src={nft.image || "/placeholder.svg"}
-                      alt={nft.name}
+                      alt={nft.name || `NFT ${nft.nftId}`}
                       className="w-full h-48 object-cover brutalist-border-thick"
                     />
                     <div className="absolute top-3 left-3 flex gap-2">
-                      <Badge className={`${getRarityColor(nft.rarity)} brutalist-border text-xs font-black`}>
-                        {nft.rarity}
+                      <Badge className={`${getRarityColor(nft.rarity || 'COMMON')} brutalist-border text-xs font-black`}>
+                        {nft.rarity || 'COMMON'}
                       </Badge>
-                      <Badge className={`${getCategoryColor(nft.category)} brutalist-border text-xs font-black`}>
-                        {nft.category}
+                      <Badge className={`${getCategoryColor(nft.category || 'ART')} brutalist-border text-xs font-black`}>
+                        {nft.category || 'ART'}
                       </Badge>
                     </div>
                     <Button
@@ -658,55 +582,58 @@ function MarketplacePage() {
                     >
                       <Heart className={`w-4 h-4 ${nft.isLiked ? "fill-current" : ""}`} />
                     </Button>
-
                     {/* Availability overlay */}
-                    {!nft.isAvailable && (
+                    {!nft.isActive && (
                       <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                        <Badge className="bg-red-500 text-white brutalist-border font-black">SOLD OUT</Badge>
+                        <Badge className="bg-red-500 text-white brutalist-border font-black">
+                          SOLD OUT
+                        </Badge>
                       </div>
                     )}
                   </div>
                 </CardHeader>
-
                 <CardContent className="p-4">
                   <div className="mb-3">
-                    <h3 className="brutalist-text text-black text-sm mb-1">{nft.name}</h3>
-                    <p className="text-xs text-gray-600 font-bold line-clamp-2">{nft.description}</p>
+                    <h3 className="brutalist-text text-black text-sm mb-1">
+                      {nft.name || `NFT #${nft.nftId}`}
+                    </h3>
+                    <p className="text-xs text-gray-600 font-bold line-clamp-2">
+                      {nft.description || `Unique digital asset from listing ${nft.listingId}`}
+                    </p>
                   </div>
-
                   <div className="mb-3">
                     <p className="text-xs font-bold text-gray-500">CREATOR</p>
-                    <p className="brutalist-text text-black text-xs">{nft.creator}</p>
+                    <p className="brutalist-text text-black text-xs">
+                      {nft.creator || `Creator_${nft.sellerId}`}
+                    </p>
                   </div>
-
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
                       <div className="flex items-center space-x-1">
                         <Heart className="w-3 h-3 text-red-500" />
-                        <span className="text-xs font-bold">{nft.likes}</span>
+                        <span className="text-xs font-bold">{nft.likes || 0}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <Eye className="w-3 h-3 text-gray-500" />
-                        <span className="text-xs font-bold">{nft.views}</span>
+                        <span className="text-xs font-bold">{nft.views || 0}</span>
                       </div>
                     </div>
                   </div>
-
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-xs font-bold text-gray-500">PRICE</p>
                       <p className="brutalist-text text-black">
-                        {nft.price} {nft.currency}
+                        {(Number(nft.price) / 1000000000).toFixed(2)} {nft.currency || 'SOL'}
                       </p>
                     </div>
                     <Button
-                      onClick={() => handleBuy(nft.id)}
+                      onClick={() => handleBuy(nft)}
                       className="brutalist-button-electric px-4 py-2 text-xs"
-                      disabled={!connected || !nft.isAvailable || purchasingNfts.has(nft.id)}
+                      disabled={!connected || !nft.isActive || purchasingNfts.has(nft.id)}
                     >
                       {purchasingNfts.has(nft.id) ? (
                         <Loader2 className="w-3 h-3 animate-spin" />
-                      ) : !nft.isAvailable ? (
+                      ) : !nft.isActive ? (
                         "SOLD"
                       ) : (
                         <>
@@ -728,7 +655,9 @@ function MarketplacePage() {
                 <Search className="h-12 w-12 text-black" />
               </div>
               <h3 className="brutalist-title text-black mb-4">NO NFTS FOUND</h3>
-              <p className="brutalist-text text-gray-600 mb-6">TRY ADJUSTING YOUR FILTERS OR SEARCH TERMS</p>
+              <p className="brutalist-text text-gray-600 mb-6">
+                TRY ADJUSTING YOUR FILTERS OR SEARCH TERMS
+              </p>
               <Button
                 onClick={() => {
                   setSearchQuery("")
@@ -740,6 +669,26 @@ function MarketplacePage() {
                 className="brutalist-button-electric"
               >
                 CLEAR FILTERS
+              </Button>
+            </div>
+          )}
+
+          {/* No data state */}
+          {nfts.length === 0 && !isLoadingListings && (
+            <div className="text-center py-16">
+              <div className="w-24 h-24 bg-gray-300 brutalist-border brutalist-shadow-xl mx-auto mb-6 flex items-center justify-center">
+                <ShoppingCart className="h-12 w-12 text-black" />
+              </div>
+              <h3 className="brutalist-title text-black mb-4">NO LISTINGS AVAILABLE</h3>
+              <p className="brutalist-text text-gray-600 mb-6">
+                THERE ARE NO NFT LISTINGS IN THE MARKETPLACE YET
+              </p>
+              <Button
+                onClick={() => refetchListings()}
+                className="brutalist-button-electric"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                REFRESH
               </Button>
             </div>
           )}

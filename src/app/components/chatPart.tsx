@@ -360,12 +360,12 @@ function ChatPart() {
   })
   const NFTListing=trpc.marketplaceRouter.listNft.useMutation({
     onSuccess: (data) => {
-      console.log("NFT minting confirmed:", data)
+      console.log("NFT listing confirmed:", data)
     },
     onError: (error) => {
       console.error("Error confirming NFT:", error)
-      setOperationState((prev) => ({ ...prev, error: "Failed to confirm NFT minting" }))
-      showToast.error("Failed to confirm NFT minting")
+      setOperationState((prev) => ({ ...prev, error: "Failed to confirm NFT listing" }))
+      showToast.error("Failed to confirm NFT listing ")
     },
   })
   const confirmNftListing=trpc.marketplaceRouter.confirmListing.useMutation({
@@ -608,9 +608,9 @@ function ChatPart() {
 
         const confirmNftResponse = await safeAsyncOperation(
           () =>
-            confirmMintingNft.mutateAsync({
+            confirmNftListing.mutateAsync({
               transactionSignature: nftSignature,
-              pendingNftId: nftMintedResponse.pendingListId,
+              pendingListId: nftMintedResponse.pendingListId,
             }),
           "NFT listing confirmation failed",
         )
@@ -623,12 +623,11 @@ function ChatPart() {
           nftMinted: true,
           mintingInProgress: false,
           showMintButton: false,
-          nft_mint_address: confirmNftResponse.nft.mintAddress,
         })
 
         const successMessage: Message = {
           id: Date.now().toString(),
-          content: "🎉 SUCCESS! Your image has been listed as an NFT!",
+          content: "🎉 SUCCESS! Your NFT has been listed over the marketplace!",
           sender: "ai",
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           contentType: "text",
