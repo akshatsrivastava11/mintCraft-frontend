@@ -1,6 +1,52 @@
+"use client"
+
+import { useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import Image from "next/image";
 
-export default function Home() {
+export default function LandingPage() {
+  const router = useRouter()
+
+  useEffect(() => {
+    // Redirect to home page after a brief moment
+    const timer = setTimeout(() => {
+      router.push("/home")
+    }, 1000)
+
+    return () => clearTimeout(timer)
+  }, [router])
+
+  return (
+    <div className="min-h-screen bg-white/90 backdrop-blur-sm flex items-center justify-center relative overflow-hidden">
+      {/* Animated background elements */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-20 left-20 w-32 h-32 bg-lime-400/20 rounded-full   "></div>
+        <div className="absolute top-40 right-32 w-24 h-24 bg-fuchsia-500/20 rounded-full animate-brutalist-wiggle"></div>
+        <div className="absolute bottom-40 left-1/4 w-40 h-40 bg-cyan-400/20 rounded-full "></div>
+        <div className="absolute bottom-20 right-1/3 w-28 h-28 bg-yellow-400/20 rounded-full   "></div>
+      </div>
+
+      <div className="text-center relative z-10">
+        <div className="mb-8 relative">
+          <h1 className="brutalist-title text-black text-8xl mb-4 animate-brutalist-bounce">
+            MINTCRAFT
+          </h1>
+          <div className="absolute -top-8 -right-8 w-16 h-16 bg-lime-400 rounded-full   "></div>
+          <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-fuchsia-500 rounded-full animate-brutalist-wiggle"></div>
+        </div>
+        
+        <p className="brutalist-text text-gray-600 text-xl mb-8 ">
+          INITIALIZING AI-POWERED CREATION PLATFORM...
+        </p>
+        
+        <LoadingSpinner size="lg" text="LOADING MINTCRAFT..." />
+      </div>
+    </div>
+  )
+}
+
+function Home() {
   return (
     <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
       <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">

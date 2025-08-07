@@ -1,4 +1,3 @@
-
 "use client"
 
 import React from "react"
@@ -6,19 +5,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import {
-  Loader2,
-  Send,
-  Bot,
-  User,
-  Zap,
-  ChevronDown,
-  Download,
-  ExternalLink,
-  AlertCircle,
-  CheckCircle,
-  Coins,
-} from "lucide-react"
+import { Loader2, Send, Bot, User, Zap, ChevronDown, Download, ExternalLink, AlertCircle, CheckCircle, Coins, Hash, Wallet, Copy } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,9 +35,15 @@ interface Message {
   contentId?: number
   showMintButton?: boolean
   mintingInProgress?: boolean
-  nft_mint_address?:string
+  nft_mint_address?: string
   listingInProgress?: boolean
   showListButton?: boolean
+  transactionSignature?: string // Added for tracking transaction signatures
+  mintTransactionSignature?: string // Added for tracking mint transaction signatures
+  istxLabelContentGeneration?: boolean
+  istxLabelMintAddress?: boolean
+  istxLabelNftMintingTransaction?: boolean
+  istxLabelNftListing?: boolean
 }
 
 interface AIModel {
@@ -184,6 +177,42 @@ const SafeImage: React.FC<{
   )
 }
 
+// Copy to clipboard utility
+const copyToClipboard = (text: string, label: string) => {
+  navigator.clipboard.writeText(text).then(() => {
+    showToast.success(`${label} copied to clipboard!`)
+  }).catch(() => {
+    showToast.error(`Failed to copy ${label}`)
+  })
+}
+
+// Transaction/Address display component
+const TransactionTag: React.FC<{
+  type: "mint" | "transaction"
+  value: string
+  label?: string
+  className?: string
+}> = ({ type, value, label, className = "" }) => {
+  const truncatedValue = `${value.slice(0, 10)}...${value.slice(-4)}`
+  const bgColor = type === "mint" ? "bg-purple-500" : "bg-cyan-500"
+  const icon = type === "mint" ? <Wallet className="w-3 h-3 text-white" /> : <Hash className="w-3 h-3 text-white" />
+  const defaultLabel = type === "mint" ? "MINT" : "TXN"
+  const displayLabel = label || defaultLabel
+
+  return (
+    <div 
+      className={`flex items-center space-x-1 px-3 py-1 ${bgColor} brutalist-border cursor-pointer hover:opacity-80 transition-opacity ${className}`}
+      onClick={() => copyToClipboard(value, type === "mint" ? "Mint address" : "Transaction signature")}
+      title={`Click to copy ${type === "mint" ? "mint address" : "transaction signature"}`}
+    >
+      {icon}
+      <span className="brutalist-text text-white text-xs font-bold">{displayLabel}</span>
+      <span className="brutalist-text text-white text-xs">{truncatedValue}</span>
+      <Copy className="w-3 h-3 text-white opacity-60" />
+    </div>
+  )
+}
+
 // Debounced input hook
 const useDebounce = (value: string, delay: number) => {
   const [debouncedValue, setDebouncedValue] = useState(value)
@@ -206,7 +235,8 @@ function ChatPart() {
   const { data, error, isLoading: modelsLoading } = trpc.aiModelRouter.getAll.useQuery()
   const { signTransaction, sendTransaction, publicKey, connected } = useWallet()
   const { signingTransaction } = useAppstore()
-  const [price,setPrice]=useState(0)
+  const [price, setPrice] = useState(0)
+
   // Enhanced state management
   const [messages, setMessages] = useState<Message[]>([])
   const [newMessage, setNewMessage] = useState("")
@@ -302,6 +332,7 @@ function ChatPart() {
       setConnectionError("Failed to initialize user configuration")
     },
   })
+
   const initializeUserConfigForMarketplace = trpc.marketplaceRouter.initilizeUserConfig.useMutation({
     onSuccess: (data) => {
       console.log("User config for marketplace initialized", data)
@@ -358,7 +389,8 @@ function ChatPart() {
       showToast.error("Failed to confirm NFT minting")
     },
   })
-  const NFTListing=trpc.marketplaceRouter.listNft.useMutation({
+
+  const NFTListing = trpc.marketplaceRouter.listNft.useMutation({
     onSuccess: (data) => {
       console.log("NFT listing confirmed:", data)
     },
@@ -368,7 +400,8 @@ function ChatPart() {
       showToast.error("Failed to confirm NFT listing ")
     },
   })
-  const confirmNftListing=trpc.marketplaceRouter.confirmListing.useMutation({
+
+  const confirmNftListing = trpc.marketplaceRouter.confirmListing.useMutation({
     onSuccess: (data) => {
       console.log("NFT minting confirmed:", data)
     },
@@ -378,7 +411,6 @@ function ChatPart() {
       showToast.error("Failed to confirm NFT minting")
     },
   })
-
 
   // Enhanced message status updater
   const updateMessageStatus = useCallback(
@@ -430,7 +462,7 @@ function ChatPart() {
         dismissCurrentToast()
         const signingToast = showLoadingToast("Please sign the NFT minting transaction...")
 
-        const nftSignature:string|null = await safeAsyncOperation(
+        const nftSignature: string | null = await safeAsyncOperation(
           () =>
             signingTransaction(
               signTransaction,
@@ -461,14 +493,17 @@ function ChatPart() {
         if (!confirmNftResponse?.success) {
           throw new Error("NFT confirmation failed")
         }
-        console.log("&&&&&&&&&&&&&",confirmNftResponse.nft.mintAddress)
+
+        console.log("&&&&&&&&&&&&&", confirmNftResponse.nft.mintAddress)
         updateMessageStatus(messageId, "success", {
           nftMinted: true,
           mintingInProgress: false,
           showMintButton: false,
           nft_mint_address: confirmNftResponse.nft.mintAddress,
+          mintTransactionSignature: nftSignature, // Store mint transaction signature
           showListButton: true,
-
+          istxLabelMintAddress: true, // Add this flag
+          istxLabelNftMintingTransaction: true, // Add this flag
         })
 
         const successMessage: Message = {
@@ -479,17 +514,17 @@ function ChatPart() {
           contentType: "text",
           status: "success",
         }
-        
         setMessages((prev) => [...prev, successMessage])
+
         const suggestionMessage: Message = {
-        id: (Date.now() + 2).toString(),
-        content:
-          "Your image is minted as NFT ! Click the 'List on Marketplace' button below the image if you want to list it on the marketplace! 🚀",
-        sender: "ai",
-        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        contentType: "text",
-        status: "success",
-      }
+          id: (Date.now() + 2).toString(),
+          content:
+            "Your image is minted as NFT ! Click the 'List on Marketplace' button below the image if you want to list it on the marketplace! 🚀",
+          sender: "ai",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          contentType: "text",
+          status: "success",
+        }
         setMessages((prev) => [...prev, suggestionMessage])
 
         dismissCurrentToast()
@@ -521,45 +556,44 @@ function ChatPart() {
       safeAsyncOperation,
     ],
   )
-  const ListNFTOnMarketplace=useCallback(
-    async (nft_mint_address:string, messageId:string) => {
+
+  const ListNFTOnMarketplace = useCallback(
+    async (nft_mint_address: string, messageId: string) => {
       const abortController = new AbortController()
       abortControllerRef.current = abortController
-     try {
-         setOperationState((prev) => ({ ...prev, currentStep: "Initializing user config for the marketplace" }))
-      let loadingToast = showLoadingToast("Initializing marketplace user configuration...")
+      try {
+        setOperationState((prev) => ({ ...prev, currentStep: "Initializing user config for the marketplace" }))
+        let loadingToast = showLoadingToast("Initializing marketplace user configuration...")
 
-      const response1 = await safeAsyncOperation(
-        () => initializeUserConfigForMarketplace.mutateAsync(),
-        "Failed to initialize user config",
-      )
-
-      if (!response1) throw new Error("User config initialization failed")
-
-      if (response1.alreadyExists) {
-        dismissCurrentToast()
-        showToast.success("User configuration ready!")
-      } else if (response1.serializedTransaction) {
-        dismissCurrentToast()
-        loadingToast = showLoadingToast("Please sign the initialization transaction...")
-
-        const responseSigned1 = await safeAsyncOperation(
-          () =>
-            signingTransaction(
-              signTransaction,
-              sendTransaction,
-              connection,
-              response1.serializedTransaction,
-              publicKey?.toString(),
-            ),
-          "Initialization transaction signing failed",
+        const response1 = await safeAsyncOperation(
+          () => initializeUserConfigForMarketplace.mutateAsync(),
+          "Failed to initialize user config",
         )
 
-        if (!responseSigned1) throw new Error("Initialization transaction signing failed")
-        dismissCurrentToast()
-      }
-    
+        if (!response1) throw new Error("User config initialization failed")
 
+        if (response1.alreadyExists) {
+          dismissCurrentToast()
+          showToast.success("User configuration ready!")
+        } else if (response1.serializedTransaction) {
+          dismissCurrentToast()
+          loadingToast = showLoadingToast("Please sign the initialization transaction...")
+
+          const responseSigned1 = await safeAsyncOperation(
+            () =>
+              signingTransaction(
+                signTransaction,
+                sendTransaction,
+                connection,
+                response1.serializedTransaction,
+                publicKey?.toString(),
+              ),
+            "Initialization transaction signing failed",
+          )
+
+          if (!responseSigned1) throw new Error("Initialization transaction signing failed")
+          dismissCurrentToast()
+        }
 
         setOperationState({ isProcessing: true, currentStep: "Listing NFT On the Marketplace", error: null })
         updateMessageStatus(messageId, "sending", {
@@ -567,15 +601,14 @@ function ChatPart() {
           showListButton: false,
         })
 
-
         loadingToast = showLoadingToast("Listing NFT...")
 
         const nftMintedResponse = await safeAsyncOperation(
           () =>
             NFTListing.mutateAsync({
-          marketplaceId: 1,//TODO//FIND THE MARKETPLACE FIRST
-          nft_mint_address:nft_mint_address,
-          price: 1000, // Example price, adjust as neede
+              marketplaceId: 1, //TODO//FIND THE MARKETPLACE FIRST
+              nft_mint_address: nft_mint_address,
+              price: 1000, // Example price, adjust as needed
             }),
           "NFT Listing failed",
         )
@@ -587,7 +620,7 @@ function ChatPart() {
         dismissCurrentToast()
         const signingToast = showLoadingToast("Please sign the NFT listing transaction...")
 
-        const nftSignature:string|any = await safeAsyncOperation(
+        const nftSignature: string | any = await safeAsyncOperation(
           () =>
             signingTransaction(
               signTransaction,
@@ -604,7 +637,7 @@ function ChatPart() {
         }
 
         dismissCurrentToast()
-        const confirmingToast = showLoadingToast("Confirming NFT listtin...")
+        const confirmingToast = showLoadingToast("Confirming NFT listing...")
 
         const confirmNftResponse = await safeAsyncOperation(
           () =>
@@ -618,11 +651,13 @@ function ChatPart() {
         if (!confirmNftResponse?.success) {
           throw new Error("NFT confirmation failed")
         }
-
+        setOperationState({ isProcessing: false, currentStep: "", error: null })
         updateMessageStatus(messageId, "success", {
           nftMinted: true,
           mintingInProgress: false,
           showMintButton: false,
+          transactionSignature: nftSignature,
+          istxLabelNftListing: true, // Add this flag
         })
 
         const successMessage: Message = {
@@ -633,8 +668,8 @@ function ChatPart() {
           contentType: "text",
           status: "success",
         }
-
         setMessages((prev) => [...prev, successMessage])
+
         dismissCurrentToast()
         showToast.success("🎉 NFT listed successfully!")
       } catch (error: any) {
@@ -644,10 +679,10 @@ function ChatPart() {
           showListButton: true, // Show button again on error
         })
         showToast.error(error.message || "Failed to list NFT")
-        
       }
-  },[
-          mintingNftMutation,
+    },
+    [
+      mintingNftMutation,
       confirmMintingNft,
       signingTransaction,
       signTransaction,
@@ -658,7 +693,8 @@ function ChatPart() {
       showLoadingToast,
       dismissCurrentToast,
       safeAsyncOperation,
-  ])
+    ],
+  )
 
   // Enhanced main message handler (removed automatic NFT detection)
   const handleSendMessage = useCallback(async () => {
@@ -759,7 +795,7 @@ function ChatPart() {
       dismissCurrentToast()
       loadingToast = showLoadingToast("Please sign the transaction...")
 
-      const sig:string|null = await safeAsyncOperation(
+      const sig: string | null = await safeAsyncOperation(
         () =>
           signingTransaction(
             signTransaction,
@@ -790,10 +826,11 @@ function ChatPart() {
 
       dismissCurrentToast()
       showToast.success("Content generated successfully!")
-      if(!(typeof response.contentUri=='string')){
+
+      if (!(typeof response.contentUri == "string")) {
         throw new Error("Invalid content URI received")
-        
       }
+
       // Step 5: Update message with generated image and show mint button
       updateMessageStatus(aiMessageId, "success", {
         content: "Here's your generated image!",
@@ -803,6 +840,8 @@ function ChatPart() {
         showMintButton: true, // Show the mint button
         nftMinted: false,
         mintingInProgress: false,
+        transactionSignature: sig, // Store content generation transaction signature
+        istxLabelContentGeneration: true, // Add this flag
       })
 
       // Add suggestion message
@@ -815,7 +854,6 @@ function ChatPart() {
         contentType: "text",
         status: "success",
       }
-
       setMessages((prev) => [...prev, suggestionMessage])
     } catch (error: any) {
       console.error("Error in handleSendMessage:", error)
@@ -880,7 +918,6 @@ function ChatPart() {
   // Initialize models data with error handling
   useEffect(() => {
     if (data && Array.isArray(data)) {
-      
       setAllModels(data)
       if (data.length > 0 && !selectedAImodel) {
         setSelectedAImodel(data[0].id)
@@ -1074,142 +1111,193 @@ function ChatPart() {
                   </div>
                 )}
 
-                <Card
-                  className={`max-w-[75%] brutalist-border ${
-                    message.sender === "user"
-                      ? "bg-black text-white brutalist-shadow-electric"
-                      : message.status === "error"
-                        ? "bg-red-500 text-white brutalist-shadow-danger"
-                        : message.status === "sending"
-                          ? "bg-yellow-400 text-black brutalist-shadow-warning"
-                          : "bg-white text-black brutalist-shadow-cyber"
-                  }`}
-                >
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="font-bold leading-relaxed flex-1">{message.content}</p>
+                <div className="flex  max-w-[75%]">
+                  <Card
+                    className={`brutalist-border ${
+                      message.sender === "user"
+                        ? "bg-black text-white brutalist-shadow-electric"
+                        : message.status === "error"
+                          ? "bg-red-500 text-white brutalist-shadow-danger"
+                          : message.status === "sending"
+                            ? "bg-yellow-400 text-black brutalist-shadow-warning"
+                            : "bg-white text-black brutalist-shadow-cyber"
+                    }`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-2">
+                        <p className="font-bold leading-relaxed flex-1">{message.content}</p>
+                        {/* Status indicator */}
+                        {message.status === "sending" && (
+                          <Loader2 className="w-4 h-4 animate-spin ml-2 flex-shrink-0" />
+                        )}
+                        {message.status === "error" && (
+                          <AlertCircle className="w-4 h-4 text-white ml-2 flex-shrink-0" />
+                        )}
+                        {message.nftMinted && <CheckCircle className="w-4 h-4 text-lime-400 ml-2 flex-shrink-0" />}
+                      </div>
 
-                      {/* Status indicator */}
-                      {message.status === "sending" && <Loader2 className="w-4 h-4 animate-spin ml-2 flex-shrink-0" />}
-                      {message.status === "error" && <AlertCircle className="w-4 h-4 text-white ml-2 flex-shrink-0" />}
-                      {message.nftMinted && <CheckCircle className="w-4 h-4 text-lime-400 ml-2 flex-shrink-0" />}
-                    </div>
-
-                    {/* Display image if it's an AI response with an image */}
-                    {message.sender === "ai" && message.imageUrl && message.contentType === "image" && (
-                      <div className="mt-4">
-                        <div className="relative group">
-                          <SafeImage
-                            src={message.imageUrl}
-                            alt="AI Generated Content"
-                            className="w-full max-w-md rounded-lg brutalist-border brutalist-shadow-lg"
-                            onError={() => {
-                              console.error("Error loading image:", message.imageUrl)
-                              showToast.error("Failed to load generated image")
-                            }}
-                          />
-
-                          {/* Image overlay with actions */}
-                          <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
-                            <Button
-                              size="sm"
-                              className="brutalist-button-cyber p-2"
-                              onClick={() => {
-                                try {
-                                  window.open(message.imageUrl!, "_blank")
-                                } catch (error) {
-                                  showToast.error("Failed to open image")
-                                }
+                      {/* Display image if it's an AI response with an image */}
+                      {message.sender === "ai" && message.imageUrl && message.contentType === "image" && (
+                        <div className="mt-4">
+                          <div className="relative group">
+                            <SafeImage
+                              src={message.imageUrl}
+                              alt="AI Generated Content"
+                              className="w-full max-w-md rounded-lg brutalist-border brutalist-shadow-lg"
+                              onError={() => {
+                                console.error("Error loading image:", message.imageUrl)
+                                showToast.error("Failed to load generated image")
                               }}
-                              title="Open in new tab"
-                            >
-                              <ExternalLink className="w-4 h-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="brutalist-button-cyber p-2"
-                              onClick={() => handleDownload(message.imageUrl!, message.id)}
-                              title="Download image"
-                            >
-                              <Download className="w-4 h-4" />
-                            </Button>
+                            />
+
+                            {/* Image overlay with actions */}
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-2">
+                              <Button
+                                size="sm"
+                                className="brutalist-button-cyber p-2"
+                                onClick={() => {
+                                  try {
+                                    window.open(message.imageUrl!, "_blank")
+                                  } catch (error) {
+                                    showToast.error("Failed to open image")
+                                  }
+                                }}
+                                title="Open in new tab"
+                              >
+                                <ExternalLink className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                className="brutalist-button-cyber p-2"
+                                onClick={() => handleDownload(message.imageUrl!, message.id)}
+                                title="Download image"
+                              >
+                                <Download className="w-4 h-4" />
+                              </Button>
+                            </div>
+
+                            {/* NFT Badge */}
+                            {message.nftMinted && (
+                              <div className="absolute bottom-2 left-2 bg-lime-400 brutalist-border px-2 py-1">
+                                <span className="brutalist-text text-black text-xs">NFT MINTED!</span>
+                              </div>
+                            )}
                           </div>
 
-                          {/* NFT Badge */}
-                          {message.nftMinted && (
-                            <div className="absolute bottom-2 left-2 bg-lime-400 brutalist-border px-2 py-1">
-                              <span className="brutalist-text text-black text-xs">NFT MINTED!</span>
+                          {/* Mint as NFT Button */}
+                          {message.showMintButton && message.contentId && !message.nftMinted && (
+                            <div className="mt-4 flex justify-center">
+                              <Button
+                                onClick={() => mintContentAsNFT(message.contentId!, message.id)}
+                                disabled={message.mintingInProgress || operationState.isProcessing}
+                                className="brutalist-button-electric px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {message.mintingInProgress ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                    MINTING NFT...
+                                  </>
+                                ) : (
+                                  <>
+                                    <Coins className="w-4 h-4 mr-2" />
+                                    MINT AS NFT
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
+
+                          {/* List as NFT Button */}
+                          {message.nftMinted && message.showListButton && message.nft_mint_address && (
+                            <div className="mt-4 flex justify-center">
+                              <Input
+                                placeholder="NFT PRICE"
+                                value={price}
+                                onChange={(e) => setPrice(Number(e.target.value))}
+                                className={`brutalist-input font-bold border-red-500`}
+                                disabled={message.mintingInProgress || operationState.isProcessing}
+                              />
+                              <Button
+                                onClick={() => ListNFTOnMarketplace(message.nft_mint_address!, message.id)}
+                                disabled={message.mintingInProgress || operationState.isProcessing}
+                                className="brutalist-button-electric px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {message.mintingInProgress ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                                    LISTING NFT.........
+                                  </>
+                                ) : (
+                                  <>
+                                    <Coins className="w-4 h-4 mr-2" />
+                                    LIST ON MARKETPLACE
+                                  </>
+                                )}
+                              </Button>
                             </div>
                           )}
                         </div>
+                      )}
 
-                        {/* Mint as NFT Button */}
-                        {message.showMintButton && message.contentId && !message.nftMinted && (
-                          <div className="mt-4 flex justify-center">
-                            <Button
-                              onClick={() => mintContentAsNFT(message.contentId!, message.id)}
-                              disabled={message.mintingInProgress || operationState.isProcessing}
-                              className="brutalist-button-electric px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {message.mintingInProgress ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                  MINTING NFT...
-                                </>
-                              ) : (
-                                <>
-                                  <Coins className="w-4 h-4 mr-2" />
-                                  MINT AS NFT
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                        {/* List as NFT Button */}
-                        {message.nftMinted && message.showListButton && message.nft_mint_address && (
-                          <div className="mt-4 flex justify-center">
-                          <Input
-                          placeholder="NFT PRICE"
-                          value={price}
-                          onChange={(e) => setPrice(Number(e.target.value))}
-                          className={`brutalist-input font-bold border-red-500`}
-                          disabled={message.mintingInProgress||operationState.isProcessing}
+                      <p
+                        className={`text-xs brutalist-text mt-2 ${
+                          message.sender === "user"
+                            ? "text-lime-400"
+                            : message.status === "error"
+                              ? "text-red-200"
+                              : "text-gray-500"
+                        }`}
+                      >
+                        {message.timestamp}
+                      </p>
+                    </CardContent>
+                  </Card>
+
+                  {/* Transaction Tags - positioned to the right of AI response cards */}
+                  {message.sender === "ai" && (
+                    <div className="flex flex-col gap-2 mt-2 ml-4">
+                      {/* Content Generation Transaction Signature */}
+                      {message.transactionSignature && message.istxLabelContentGeneration && (
+                        <TransactionTag
+                          type="transaction"
+                          value={message.transactionSignature}
+                          label="CONTENT GEN"
+                          className="self-start"
                         />
-                            <Button
-                              onClick={() => ListNFTOnMarketplace(message.nft_mint_address!, message.id)}
-                              disabled={message.mintingInProgress || operationState.isProcessing}
-                              className="brutalist-button-electric px-6 py-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                              {message.mintingInProgress ? (
-                                <>
-                                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                                  LISTING NFT.........
-                                </>
-                              ) : (
-                                <>
-                                  <Coins className="w-4 h-4 mr-2" />
-                                  LIST ON MARKETPLACE
-                                </>
-                              )}
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    <p
-                      className={`text-xs brutalist-text mt-2 ${
-                        message.sender === "user"
-                          ? "text-lime-400"
-                          : message.status === "error"
-                            ? "text-red-200"
-                            : "text-gray-500"
-                      }`}
-                    >
-                      {message.timestamp}
-                    </p>
-                  </CardContent>
-                </Card>
+                      )}
+                      
+                      {/* NFT Mint Address */}
+                      {message.nft_mint_address && message.istxLabelMintAddress && (
+                        <TransactionTag
+                          type="mint"
+                          value={message.nft_mint_address}
+                          label="NFT MINT"
+                          className="self-start"
+                        />
+                      )}
+                      
+                      {/* NFT Mint Transaction Signature */}
+                      {message.mintTransactionSignature && message.istxLabelNftMintingTransaction && (
+                        <TransactionTag
+                          type="transaction"
+                          value={message.mintTransactionSignature}
+                          label="MINT TXN"
+                          className="self-start"
+                        />
+                      )}
+                      
+                      {/* NFT Listing Transaction Signature */}
+                      {message.transactionSignature && message.istxLabelNftListing && (
+                        <TransactionTag
+                          type="transaction"
+                          value={message.transactionSignature}
+                          label="LIST TXN"
+                          className="self-start"
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
 
                 {message.sender === "user" && (
                   <div className="w-12 h-12 bg-black brutalist-border flex items-center justify-center flex-shrink-0 brutalist-shadow">

@@ -239,12 +239,12 @@ function CreateModel() {
 
     try {
       // Step 1: Initialize user config
-      showToast.loading("Initializing user configuration...")
+      const ld1=showToast.loading("Initializing user configuration...")
       const response1 = await initilizeUserConfigMutation.mutateAsync()
       console.log("User config initialized:", response1)
 
       if (response1.serializedTransaction) {
-        showToast.loading("Please sign the initialization transaction...")
+        const ld3=showToast.loading("Please sign the initialization transaction...")
         const responseSigned1 = await signingTransaction(
           signTransaction,
           sendTransaction,
@@ -253,10 +253,12 @@ function CreateModel() {
           publicKey.toString(),
         )
         console.log("Initialization signed:", responseSigned1)
+        showToast.dismiss(ld3)
       }
+      showToast.dismiss(ld1)
 
       // Step 2: Register the model
-      showToast.loading("Registering AI model...")
+      const ld2=showToast.loading("Registering AI model...")
 
       // Convert headers array to object
       const headersObject = newModel.headers
@@ -289,10 +291,9 @@ function CreateModel() {
       if (!response.serializedTransaction) {
         throw new Error("No transaction received from registration")
       }
-
       // Step 3: Sign registration transaction
-      showToast.loading("Please sign the registration transaction...")
-
+      const ld4=showToast.loading("Please sign the registration transaction...")
+      
       const responseSigned = await signingTransaction(
         signTransaction,
         sendTransaction,
@@ -300,20 +301,22 @@ function CreateModel() {
         response.serializedTransaction,
         publicKey.toString(),
       )
-
+      
       if (!responseSigned) {
         throw new Error("Transaction signing failed")
       }
-
+      showToast.dismiss(ld4)
+      showToast.dismiss(ld2)
       console.log("Registration signed:", responseSigned)
 
       // Step 4: Confirm registration
-      showToast.loading("Confirming model registration...")
+      const ld5=showToast.loading("Confirming model registration...")
 
       await confirmRegisterMutation.mutateAsync({
         pendingRegistrationId: response.pendingRegistrationId,
         transactionSignature: responseSigned,
       })
+      showToast.dismiss(ld5)
     } catch (error: any) {
       console.error("Error creating model:", error)
       showToast.error(error.message || "Failed to create AI model")

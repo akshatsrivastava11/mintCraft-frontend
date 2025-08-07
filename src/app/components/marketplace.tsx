@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,11 +19,12 @@ import { showToast } from "@/lib/toast"
 import { LoadingSpinner } from "@/components/ui/loading-spinner"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Toaster } from "react-hot-toast"
-import { useWallet } from "@solana/wallet-adapter-react"
+import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import { trpc } from "../clients/trpc"
+import useAppstore from "@/state/state"
 
 interface NFTListing {
-  price: bigint
+  price: string
   marketplaceId: number | null
   id: number
   nftId: number
@@ -47,8 +48,18 @@ interface NFTListing {
   isAvailable?: boolean
 }
 
+interface OperationState {
+  isProcessing: boolean
+  currentStep: string
+  error: string | null
+}
+
 function MarketplacePage() {
-  const { connected, publicKey } = useWallet()
+  const { connected, publicKey, signTransaction, sendTransaction } = useWallet()
+  const connection = useConnection()
+  const { signingTransaction } = useAppstore()
+
+  // Enhanced state management similar to ChatPart
   const [filteredNfts, setFilteredNfts] = useState<NFTListing[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL")
@@ -57,13 +68,66 @@ function MarketplacePage() {
   const [priceRange, setPriceRange] = useState<string>("ALL")
   const [purchasingNfts, setPurchasingNfts] = useState<Set<number>>(new Set())
   const [likedNfts, setLikedNfts] = useState<Set<number>>(new Set())
+  const [operationState, setOperationState] = useState<OperationState>({
+    isProcessing: false,
+    currentStep: "",
+    error: null,
+  })
+  const [connectionError, setConnectionError] = useState<string | null>(null)
+
+  // Refs for cleanup and toast management (similar to ChatPart)
+  const currentToastRef = useRef<string | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const categories = ["ALL", "ART", "MUSIC", "GAMING", "UTILITY", "COLLECTIBLE"]
   const rarities = ["ALL", "COMMON", "RARE", "EPIC", "LEGENDARY"]
   const sortOptions = ["NEWEST", "OLDEST", "PRICE_LOW", "PRICE_HIGH", "MOST_LIKED"]
   const priceRanges = ["ALL", "UNDER_1", "1_TO_5", "OVER_5"]
 
-  // tRPC Queries
+  // Toast management utilities (copied from ChatPart)
+  const showLoadingToast = useCallback((message: string) => {
+    if (currentToastRef.current) {
+      showToast.dismiss(currentToastRef.current)
+    }
+    currentToastRef.current = showToast.loading(message)
+    return currentToastRef.current
+  }, [])
+
+  const dismissCurrentToast = useCallback(() => {
+    if (currentToastRef.current) {
+      showToast.dismiss(currentToastRef.current)
+      currentToastRef.current = null
+    }
+  }, [])
+
+  // Safe async operation wrapper (copied from ChatPart)
+  const safeAsyncOperation = useCallback(
+    async <T,>(
+      operation: () => Promise<T>,
+      errorMessage: string,
+      onError?: (error: Error) => void,
+    ): Promise<T | null> => {
+      try {
+        return await operation()
+      } catch (error) {
+        const errorObj = error instanceof Error ? error : new Error(String(error))
+        console.error(errorMessage, errorObj)
+        showToast.error(errorObj.message || errorMessage)
+        onError?.(errorObj)
+        return null
+      }
+    },
+    [],
+  )
+
+  // Validation utilities (copied from ChatPart)
+  const validateWalletConnection = useCallback(() => {
+    if (!connected || !publicKey) {
+      throw new Error("Wallet not connected")
+    }
+  }, [connected, publicKey])
+
+  // tRPC Queries with enhanced error handling
   const {
     data: allListings,
     isLoading: isLoadingListings,
@@ -72,11 +136,11 @@ function MarketplacePage() {
   } = trpc.marketplaceRouter.getListings.useQuery(undefined, {
     retry: 3,
     retryDelay: 1000,
+    onError: (error) => {
+      console.error("Error loading listings:", error)
+      setConnectionError("Failed to load NFT listings")
+    },
   })
-  console.log("allListings", allListings)
-  useEffect(()=>{
-    refetchListings()
-  },[])
 
   const {
     data: myListings,
@@ -85,31 +149,41 @@ function MarketplacePage() {
   } = trpc.marketplaceRouter.getMyListings.useQuery(undefined, {
     enabled: connected,
     retry: 2,
+    onError: (error) => {
+      console.error("Error loading my listings:", error)
+      showToast.error("Failed to load your listings")
+    },
   })
-  
-  // tRPC Mutations
-  // setFilteredNfts(getAllNftListings.data)/
+
+  // Enhanced tRPC Mutations with toast management
   const buyNftMutation = trpc.marketplaceRouter.buyNft.useMutation({
     onSuccess: (data, variables) => {
-      showToast.success("NFT purchased successfully!")
+      dismissCurrentToast()
+      showToast.success("🎉 NFT purchased successfully!")
       setPurchasingNfts(prev => {
         const newSet = new Set(prev)
         newSet.delete(variables.listingId)
         return newSet
       })
+      
       // Refetch listings to get updated data
       refetchListings()
+      return data
     },
     onError: (error, variables) => {
       console.error("Error buying NFT:", error)
+      dismissCurrentToast()
       showToast.error(`Failed to purchase NFT: ${error.message}`)
       setPurchasingNfts(prev => {
         const newSet = new Set(prev)
         newSet.delete(variables.listingId)
         return newSet
       })
+      setOperationState(prev => ({ ...prev, error: "Failed to purchase NFT" }))
     },
   })
+
+  // Utility functions
   const getRarityColor = (rarity: string) => {
     switch (rarity) {
       case "LEGENDARY":
@@ -139,16 +213,21 @@ function MarketplacePage() {
         return "bg-orange-500 text-white"
       default:
         return "bg-gray-300 text-black"
-      }
     }
+  }
 
-  const handleLike = async (nftId: number) => {
+  // Enhanced like handler with toast management
+  const handleLike = useCallback(async (nftId: number) => {
     if (!connected) {
       showToast.error("Connect your wallet to like NFTs!")
       return
     }
     
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
+
     try {
+      // Optimistic update
       setLikedNfts(prev => {
         const newSet = new Set(prev)
         if (newSet.has(nftId)) {
@@ -159,13 +238,22 @@ function MarketplacePage() {
         return newSet
       })
 
+      const loadingToast = showLoadingToast("Updating preference...")
+
       // Simulate API call for liking
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      await safeAsyncOperation(
+        () => new Promise((resolve) => setTimeout(resolve, 500)),
+        "Failed to update preference"
+      )
+
+      dismissCurrentToast()
       showToast.success("Preference updated!")
     } catch (error) {
       console.error("Error updating like:", error)
+      dismissCurrentToast()
       showToast.error("Failed to update preference")
-      // Revert the change
+      
+      // Revert the optimistic update
       setLikedNfts(prev => {
         const newSet = new Set(prev)
         if (newSet.has(nftId)) {
@@ -175,45 +263,143 @@ function MarketplacePage() {
         }
         return newSet
       })
+    } finally {
+      abortControllerRef.current = null
     }
-  }
+  }, [connected, showLoadingToast, dismissCurrentToast, safeAsyncOperation])
 
-  const handleBuy = async (listing: NFTListing) => {
-    if (!connected) {
-      showToast.error("Connect your wallet to purchase NFTs!")
-      return
-    }
-
-    if (!listing.isActive) {
-      showToast.error("This NFT is no longer available!")
-      return
-    }
-    
-    setPurchasingNfts(prev => new Set(prev).add(listing.id))
+  // Enhanced buy handler with comprehensive toast management
+  const handleBuy = useCallback(async (listing: NFTListing) => {
+    const abortController = new AbortController()
+    abortControllerRef.current = abortController
 
     try {
-      await buyNftMutation.mutateAsync({
-        listingId: listing.listingId,
-        nftId: listing.nftId,
-        price: listing.price,
-      })
-    } catch (error) {
-      // Error handling is done in the mutation's onError callback
-      console.error("Purchase error:", error)
-    }
-  }
+      // Validation
+      validateWalletConnection()
 
-  // const getAllNftListings=trpc.marketplaceRouter.getListings.useQuery()
-  // if(!getAllNftListings.data){
-  //   return <LoadingSpinner />
-  // }
-  // // allListings= getAllNftListings.data
-  // setFilteredNfts(getAllNftListings.data)
-  // Process and filter NFTs
-  useEffect(() => {
-    if (!allListings) return
+      if (!listing.isActive) {
+        showToast.error("This NFT is no longer available!")
+        return
+      }
+
+      console.log("Attempting to buy NFT:", listing)
+      
+      setOperationState({ isProcessing: true, currentStep: "Purchasing NFT", error: null })
+      setConnectionError(null)
+      
+      setPurchasingNfts(prev => new Set(prev).add(listing.id))
+      
+      // Step 1: Initiate purchase
+      let loadingToast = showLoadingToast("Initiating NFT purchase...")
+      
+      const response = await safeAsyncOperation(
+        () => buyNftMutation.mutateAsync({
+          listingId: listing.listingId,
+        }),
+        "Failed to initiate NFT purchase"
+      )
+      console.log("response from handleBuy is ",response)
+
+      // if (!response?.success) {
+      //   throw new Error("Purchase initiation failed")
+      // }
+      console.log("Transaction signature from handleBuy is:", response.serializedTransaction)
+      console.log("the pubkey is ",publicKey)
+      // Step 2: Sign transaction
+      setOperationState(prev => ({ ...prev, currentStep: "Signing transaction" }))
+      dismissCurrentToast()
+      console.log("control reached here 333333333333333")
+      loadingToast = showLoadingToast("Please sign the purchase transaction...")
+      
+  // signTransaction: SignerWalletAdapterProps['signTransaction'] | undefined,
+  // sendTransaction: WalletAdapterProps['sendTransaction'],
+  // connection: ConnectionContextState,
+  // TransactionSig: string,
+  // wallet:string
+
+      const transactionSignature = await safeAsyncOperation(
+        () => signingTransaction(
+          signTransaction,
+          sendTransaction,
+          connection,
+          response.serializedTransaction,
+          publicKey?.toString(),
+        ),
+        "Transaction signing failed"
+      )
+
+      if (!transactionSignature) {
+        throw new Error("Transaction signing failed")
+      }
+
+      // Step 3: Confirm purchase
+      setOperationState(prev => ({ ...prev, currentStep: "Confirming purchase" }))
+      dismissCurrentToast()
+      loadingToast = showLoadingToast("Confirming NFT purchase...")
+
+      console.log("Transaction sent:", transactionSignature)
+      
+      dismissCurrentToast()
+      showToast.success("🎉 NFT purchased successfully!")
+      
+    } catch (error: any) {
+      console.error("Purchase error:", error)
+      setOperationState(prev => ({ ...prev, error: error.message || "Purchase failed" }))
+      dismissCurrentToast()
+      showToast.error(error.message || "Failed to purchase NFT")
+      setConnectionError(error.message || "Purchase failed")
+    } finally {
+      setOperationState({ isProcessing: false, currentStep: "", error: null })
+      setPurchasingNfts(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(listing.id)
+        return newSet
+      })
+      dismissCurrentToast()
+      abortControllerRef.current = null
+    }
+  }, [
+    validateWalletConnection,
+    buyNftMutation,
+    signingTransaction,
+    signTransaction,
+    sendTransaction,
+    connection,
+    publicKey,
+    showLoadingToast,
+    dismissCurrentToast,
+    safeAsyncOperation,
+  ])
+
+  // Enhanced refresh handler with toast
+  const handleRefresh = useCallback(async () => {
+    const loadingToast = showLoadingToast("Refreshing marketplace...")
+    try {
+      await refetchListings()
+      dismissCurrentToast()
+      showToast.success("Marketplace refreshed!")
+      setConnectionError(null)
+    } catch (error) {
+      dismissCurrentToast()
+      showToast.error("Failed to refresh marketplace")
+    }
+  }, [refetchListings, showLoadingToast, dismissCurrentToast])
+
+  // Clear filters handler with toast
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery("")
+    setSelectedCategory("ALL")
+    setSelectedRarity("ALL")
+    setPriceRange("ALL")
+    setSortBy("NEWEST")
+    showToast.success("Filters cleared!")
+  }, [])
+
+  // Process and filter NFTs (enhanced with memoization)
+  const processedNfts = useMemo(() => {
+    if (!allListings) return []
     
-    let processed = allListings.map((listing): NFTListing => ({
+    return allListings.map((listing): NFTListing => ({
       ...listing,
       // Add mock UI data for demo purposes
       name: `NFT #${listing.nftId}`,
@@ -228,8 +414,11 @@ function MarketplacePage() {
       isLiked: likedNfts.has(listing.id),
       currency: "SOL",
       isAvailable: listing.isActive,
-      
     }))
+  }, [allListings, likedNfts])
+
+  useEffect(() => {
+    let processed = [...processedNfts]
 
     // Apply filters
     if (searchQuery) {
@@ -252,7 +441,7 @@ function MarketplacePage() {
     if (priceRange !== "ALL") {
       switch (priceRange) {
         case "UNDER_1":
-          processed = processed.filter((nft) => Number(nft.price) < 1000000000) // 1 SOL in lamports
+          processed = processed.filter((nft) => Number(nft.price) < 1000000000)
           break
         case "1_TO_5":
           processed = processed.filter((nft) => 
@@ -285,12 +474,38 @@ function MarketplacePage() {
     }
 
     setFilteredNfts(processed)
-  }, [allListings, searchQuery, selectedCategory, selectedRarity, sortBy, priceRange, likedNfts])
+  }, [processedNfts, searchQuery, selectedCategory, selectedRarity, sortBy, priceRange])
+
+  // Auto-refetch effect
+  useEffect(() => {
+    refetchListings()
+  }, [])
+
+  // Handle API errors with enhanced messaging
+  useEffect(() => {
+    if (listingsError) {
+      console.error("Error loading models:", listingsError)
+      showToast.error("Failed to load NFT listings")
+      setConnectionError("Unable to connect to marketplace service")
+    }
+  }, [listingsError])
+
+  // Cleanup effect (copied from ChatPart)
+  useEffect(() => {
+    return () => {
+      dismissCurrentToast()
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      setOperationState({ isProcessing: false, currentStep: "", error: null })
+    }
+  }, [dismissCurrentToast])
 
   // Loading state
   if (isLoadingListings) {
     return (
       <div className="min-h-screen bg-white/90 backdrop-blur-sm">
+        <Toaster />
         <Navigation />
         <div className="flex justify-center items-center min-h-[400px]">
           <LoadingSpinner size="lg" text="LOADING MARKETPLACE..." />
@@ -299,10 +514,11 @@ function MarketplacePage() {
     )
   }
 
-  // Error state
-  if (listingsError) {
+  // Error state with enhanced messaging
+  if (listingsError && !allListings?.length) {
     return (
       <div className="min-h-screen bg-white/90 backdrop-blur-sm">
+        <Toaster />
         <Navigation />
         <div className="flex items-center justify-center min-h-[400px] p-8">
           <Card className="bg-red-500 brutalist-border-thick brutalist-shadow-xl max-w-md w-full">
@@ -315,7 +531,7 @@ function MarketplacePage() {
                 {listingsError.message || "Failed to load NFT listings"}
               </p>
               <Button 
-                onClick={() => refetchListings()} 
+                onClick={handleRefresh}
                 className="brutalist-button-electric w-full"
                 disabled={isLoadingListings}
               >
@@ -360,6 +576,36 @@ function MarketplacePage() {
               <div className="flex items-center justify-center space-x-3">
                 <AlertCircle className="w-6 h-6 text-black" />
                 <p className="brutalist-text text-black">CONNECT YOUR WALLET TO PURCHASE NFTS!</p>
+              </div>
+            </div>
+          )}
+
+          {/* Connection Error Banner (similar to ChatPart) */}
+          {connectionError && (
+            <div className="bg-red-500 brutalist-border-thick p-4 mb-8">
+              <div className="flex items-center space-x-3">
+                <AlertCircle className="w-5 h-5 text-white" />
+                <p className="brutalist-text text-white text-sm">{connectionError}</p>
+                <Button
+                  onClick={() => setConnectionError(null)}
+                  className="ml-auto text-white hover:text-gray-200"
+                  variant="ghost"
+                  size="sm"
+                >
+                  ✕
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Operation Status (similar to ChatPart) */}
+          {operationState.isProcessing && (
+            <div className="bg-yellow-400 brutalist-border-thick p-4 mb-8">
+              <div className="flex items-center justify-center space-x-3">
+                <Loader2 className="w-5 h-5 animate-spin text-black" />
+                <p className="brutalist-text text-black">
+                  {operationState.currentStep || "PROCESSING..."}
+                </p>
               </div>
             </div>
           )}
@@ -422,6 +668,7 @@ function MarketplacePage() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="pl-12 brutalist-input font-bold"
+                    disabled={operationState.isProcessing}
                   />
                 </div>
               </div>
@@ -429,7 +676,7 @@ function MarketplacePage() {
               {/* Category Filter */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="brutalist-button-electric w-full">
+                  <Button className="brutalist-button-electric w-full" disabled={operationState.isProcessing}>
                     <Filter className="w-4 h-4 mr-2" />
                     {selectedCategory}
                     <ChevronDown className="w-4 h-4 ml-2" />
@@ -454,7 +701,7 @@ function MarketplacePage() {
               {/* Rarity Filter */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="brutalist-button-cyber w-full">
+                  <Button className="brutalist-button-cyber w-full" disabled={operationState.isProcessing}>
                     <Star className="w-4 h-4 mr-2" />
                     {selectedRarity}
                     <ChevronDown className="w-4 h-4 ml-2" />
@@ -479,7 +726,7 @@ function MarketplacePage() {
               {/* Price Range */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="brutalist-button w-full">
+                  <Button className="brutalist-button w-full" disabled={operationState.isProcessing}>
                     <Coins className="w-4 h-4 mr-2" />
                     PRICE
                     <ChevronDown className="w-4 h-4 ml-2" />
@@ -507,7 +754,7 @@ function MarketplacePage() {
               {/* Sort */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="brutalist-button-danger w-full">
+                  <Button className="brutalist-button-danger w-full" disabled={operationState.isProcessing}>
                     <Clock className="w-4 h-4 mr-2" />
                     SORT
                     <ChevronDown className="w-4 h-4 ml-2" />
@@ -537,9 +784,9 @@ function MarketplacePage() {
               SHOWING {filteredNfts.length} OF {nfts.length} NFTS
             </p>
             <Button 
-              onClick={() => refetchListings()} 
+              onClick={handleRefresh}
               className="brutalist-button-cyber" 
-              disabled={isLoadingListings}
+              disabled={isLoadingListings || operationState.isProcessing}
             >
               {isLoadingListings ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -578,7 +825,7 @@ function MarketplacePage() {
                       className={`absolute top-3 right-3 w-8 h-8 ${
                         nft.isLiked ? "brutalist-button-danger" : "brutalist-button"
                       }`}
-                      disabled={!connected}
+                      disabled={!connected || operationState.isProcessing}
                     >
                       <Heart className={`w-4 h-4 ${nft.isLiked ? "fill-current" : ""}`} />
                     </Button>
@@ -588,6 +835,15 @@ function MarketplacePage() {
                         <Badge className="bg-red-500 text-white brutalist-border font-black">
                           SOLD OUT
                         </Badge>
+                      </div>
+                    )}
+                    {/* Processing overlay */}
+                    {purchasingNfts.has(nft.id) && (
+                      <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                        <div className="bg-yellow-400 brutalist-border px-3 py-2 flex items-center space-x-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-black" />
+                          <span className="brutalist-text text-black text-xs">PURCHASING...</span>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -629,10 +885,18 @@ function MarketplacePage() {
                     <Button
                       onClick={() => handleBuy(nft)}
                       className="brutalist-button-electric px-4 py-2 text-xs"
-                      disabled={!connected || !nft.isActive || purchasingNfts.has(nft.id)}
+                      disabled={
+                        !connected || 
+                        !nft.isActive || 
+                        purchasingNfts.has(nft.id) || 
+                        operationState.isProcessing
+                      }
                     >
                       {purchasingNfts.has(nft.id) ? (
-                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin mr-1" />
+                          BUYING...
+                        </>
                       ) : !nft.isActive ? (
                         "SOLD"
                       ) : (
@@ -659,14 +923,9 @@ function MarketplacePage() {
                 TRY ADJUSTING YOUR FILTERS OR SEARCH TERMS
               </p>
               <Button
-                onClick={() => {
-                  setSearchQuery("")
-                  setSelectedCategory("ALL")
-                  setSelectedRarity("ALL")
-                  setPriceRange("ALL")
-                  setSortBy("NEWEST")
-                }}
+                onClick={handleClearFilters}
                 className="brutalist-button-electric"
+                disabled={operationState.isProcessing}
               >
                 CLEAR FILTERS
               </Button>
@@ -684,12 +943,40 @@ function MarketplacePage() {
                 THERE ARE NO NFT LISTINGS IN THE MARKETPLACE YET
               </p>
               <Button
-                onClick={() => refetchListings()}
+                onClick={handleRefresh}
                 className="brutalist-button-electric"
+                disabled={isLoadingListings || operationState.isProcessing}
               >
-                <RefreshCw className="w-4 h-4 mr-2" />
+                {isLoadingListings ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                )}
                 REFRESH
               </Button>
+            </div>
+          )}
+
+          {/* Operation Status Footer (similar to ChatPart) */}
+          {operationState.error && (
+            <div className="fixed bottom-4 right-4 max-w-sm">
+              <Card className="bg-red-500 brutalist-border brutalist-shadow-xl">
+                <CardContent className="p-4 flex items-center space-x-3">
+                  <AlertCircle className="w-5 h-5 text-white flex-shrink-0" />
+                  <div className="flex-1">
+                    <p className="brutalist-text text-white text-sm">ERROR</p>
+                    <p className="text-xs text-red-200">{operationState.error}</p>
+                  </div>
+                  <Button
+                    onClick={() => setOperationState(prev => ({ ...prev, error: null }))}
+                    className="text-white hover:text-gray-200 p-1"
+                    variant="ghost"
+                    size="sm"
+                  >
+                    ✕
+                  </Button>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>
